@@ -1,7 +1,7 @@
 import sys
 
 # Thư viện chính
-from back_end import *
+from process_front_end import *
 import kivy
 from kivy.app import App
 from kivy.uix.gridlayout import GridLayout
