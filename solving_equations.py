@@ -1,56 +1,78 @@
+from decimal import Decimal, getcontext
+getcontext().prec = 12  # độ chính xác toàn cục
 def solve_equation_two(a1: int | float, b1: int | float, c1: int | float, 
-                       a2: int | float, b2: int | float, c2: int | float, lang: int = 1) -> tuple[int | float, int | float] | str:
-        if (a1 * b2 == a2 * b1 and b1 * c2 != b2 * c1) or a1 == a2 == 0 or b1 == b2 == 0:
+                       a2: int | float, b2: int | float, c2: int | float, 
+                       lang: int = 1) -> tuple[int | float, int | float] | str:
+        if (a1 * b2 == a2 * b1 and b1 * c2 != b2 * c1):
                 return "No solution!!!" if lang == 1 else "Vô nghiệm"
-        elif (a1 * b2 == a2 * b1 and b1 * c2 == b2 * c1 and a1 * c2 == a2 * c1):
+        elif (a1 * b2 == a2 * b1 and b1 * c2 == b2 * c1):
                 return "Every Real Solution" if lang == 1 else "Vô số nghiệm"
         y = ((a2 * c1) - (a1 * c2)) / ((a2 * b1) - (a1 * b2))
-        if a1 == 0:
-                x = ((c2 - b2 * y) / a2)
-        elif a2 == 0:
-                x = ((c1 - (b1 * y)) / a1)
-        else: x = ((c1 - b1 * y) / a1)
-        return (int(x), int(y)) if ((x.is_integer() and y.is_integer())) else (x, y)
+        if a1 != 0:
+                x = (c1 - b1 * y) / a1
+        else:
+                x = (c2 - b2 * y) / a2
+        return (int(x), int(y)) if (x.is_integer() and y.is_integer()) else (x, y)
+
+
 def solve_equation_three(a1: int | float, b1: int | float, c1: int | float, k1: int | float,
                          a2: int | float, b2: int | float, c2: int | float, k2: int | float,
-                         a3: int | float, b3: int | float, c3: int | float, k3: int | float, lang: int = 1):
-        
-        check1 = (a1 + a2 + a3) * (c1 + c2 + c3)
-        check2 = pow(b1 + b2 + b3, 2)
-        check3_1_1 = c1 * k2
-        check3_1_2 = c2 * k1
-        check3_2_1 = c2 * k3
-        check3_2_2 = c3 * k2
-        check3 = (check3_1_1 == check3_1_2) and (check3_2_1 == check3_2_2)
-        if (a1 == a2 == a3 == 0 or b1 == b2 == b3 == 0 or c1 == c2 == c3 == 0):
-                return "No solution!!!" if lang == 1 else "Vô nghiệm"
-        elif (check1 == check2) and not check3:
-                return "No solution!!!" if lang == 1 else "Vô nghiệm"
-        elif (check1 == check2) and check3:
-                return "Every Real Solution" if lang == 1 else "Vô số nghiệm"
-        result = solve_equation_two((a1 * b2) - (a2 * b1), (a1 * c2) - (a2 * c1), (a1 * k2) - (a2 * k1),
-                            (a1 * b3) - (a3 * b1), (a1 * c3) - (a3 * c1), (a1 * k3) - (a3 * k1), lang)
-        if type(result) == str:
-                return result
-        y, z = result 
-        x = (k1 - (b1 * y) - (c1 * z)) / a1 
-        return (int(x), int(y), int(z)) if (x == int(x) and y == int(y) and z == int(z)) else (x, y, z)
+                         a3: int | float, b3: int | float, c3: int | float, k3: int | float, 
+                         lang: int = 1) -> tuple[int | float, int | float, int | float] | str:
+        D  = a1 * (b2 * c3 - b3 * c2) - b1 * (a2 * c3 - a3 * c2) + c1 * (a2 * b3 - a3 * b2)
+        Dx = k1 * (b2 * c3 - b3 * c2) - b1 * (k2 * c3 - k3 * c2) + c1 * (k2 * b3 - k3 * b2)
+        Dy = a1 * (k2 * c3 - k3 * c2) - k1 * (a2 * c3 - a3 * c2) + c1 * (a2 * k3 - a3 * k2)
+        Dz = a1 * (b2 * k3 - b3 * k2) - b1 * (a2 * k3 - a3 * k2) + k1 * (a2 * b3 - a3 * b2)
 
+        if D == 0:
+                if Dx == Dy == Dz == 0:
+                        return "Every Real Solution" if lang == 1 else "Vô số nghiệm"
+                else:
+                        return "No solution!!!" if lang == 1 else "Vô nghiệm"
+        x = Dx / D
+        y = Dy / D
+        z = Dz / D
+        return (int(x), int(y), int(z)) if (x.is_integer() and y.is_integer() and z.is_integer()) else (x, y, z)
 # list_of_exception = ["No solution!!!", "Vô nghiệm", "Every Real Solution", "Vô số nghiệm"]
-
+def returning(n: int | float | Decimal, choice: str = "D"):
+        """Chuẩn hóa kết quả số học trước khi hiển thị ra màn hình."""
+        #if choice.upper() == "D":
+        if isinstance(n, Decimal):
+                n = float(n)
+        if n == int(n):
+                return int(n)
+        if abs(n - round(n)) < 1e-9:
+                return int(round(n))
+        if choice.upper() == "D":
+                if abs(n) >= 1e10 or (0 < abs(n) < 1e-6):
+                        return f"{n:.8e}"
+            
+                s = f"{n:.10f}".rstrip("0").rstrip(".")
+                return s
+        elif choice.upper() == "S":
+                from fractions import Fraction
+                frac = Fraction(*n.as_integer_ratio())
+                frac = frac.limit_denominator()
+                return frac
+          
 #--------------input-output--------------#
 if __name__ == "__main__":
+        def i_input(prompt: str):
+                inp = input(prompt)
+                process = eval(inp)
+                return process
+        
         lang_input = input("Select language (number):\n1. English\n2. Vietnamese\nDefault: English\n").strip()
         lang = 1 if (lang_input == "" or lang_input == "1") else 2
         INVALID_INPUT = "Invalid Input!!!" if lang == 1 else "Sai đầu vào"
         #try:
         if lang == 1:
-                choice = input("How many equations: (2 / 3) \nDefault: 2\n").strip()
+                choice = input("How many variable: (2 / 3) \nDefault: 2\n").strip()
                 if choice == "" or choice == "2":
                         print("Form: a b c")
                         inp = []
                         for _ in range(2):
-                                inp.extend(list(map(int, input().split())))
+                                inp.extend(list(map(eval, input().split())))
                         res = solve_equation_two(*inp, lang=lang)
                         print("Result:", sep="", end=" ")
                         if type(res) == str:
@@ -58,12 +80,12 @@ if __name__ == "__main__":
                         else:
                                 print(*res)
                 elif choice == "3":
-                        sub_choice = input("Full Form (f) or or miss equation (me)\nDefault: f").strip().lower()
-                        if sub_choice == "f" or "":
+                        sub_choice = input("Full Form (f) or or miss equation (me)\nDefault: f\n").strip().lower()
+                        if sub_choice == "f" or sub_choice == "":
                                 print("Form: a b c d")
                                 inp = []
                                 for _ in range(3):
-                                        inp.extend(list(map(int, input().split())))
+                                        inp.extend(list(map(eval, input().split())))
                                 res = solve_equation_three(*inp, lang=lang)
                                 print("Result:", sep="", end=" ")
                                 if type(res) == str:
@@ -74,7 +96,7 @@ if __name__ == "__main__":
                                 print("Form: a b c d")
                                 inp = []
                                 for _ in range(2):
-                                        inp.extend(list(map(int, input().split())))
+                                        inp.extend(list(map(eval, input().split())))
                                 print("Range:")
                                 first = int(input("Left: "))
                                 end = int(input("Right: "))
@@ -87,15 +109,16 @@ if __name__ == "__main__":
                                                 # print(res)
                                                 continue
                                         x, y = res
-                                        if check == "Z":
-                                                if x.is_integer() and y.is_integer():
-                                                        print((int(x), int(y), z))
-                                        elif check == "N" or check == "":
-                                                if x.is_integer() and y.is_integer() and x >= 0 and y >= 0:
-                                                        print((int(x), int(y), z))
-                                        else: 
-                                                print(INVALID_INPUT)
-                                                exit(0)
+                                        if first <= x <= end and first <= y <= end:
+                                                if check == "Z":
+                                                        if x.is_integer() and y.is_integer():
+                                                                print((int(x), int(y), z))
+                                                elif check == "N" or check == "":
+                                                        if x.is_integer() and y.is_integer() and x >= 0 and y >= 0:
+                                                                print((int(x), int(y), z))
+                                                else: 
+                                                        print(INVALID_INPUT)
+                                                        exit(0)
                         else:
                                 print(INVALID_INPUT)
         elif lang == 2:
@@ -104,7 +127,7 @@ if __name__ == "__main__":
                         print("Nhập hệ số a b c (các hệ số cách nhau bằng một dấu cách)")
                         inp = []
                         for _ in range(2):
-                                inp.extend(list(map(int, input().split())))
+                                inp.extend(map(eval, input().split()))
                         res = solve_equation_two(*inp, lang=lang)
                         print("Kết quả:", sep="", end=" ")
                         if type(res) == str:
@@ -113,11 +136,11 @@ if __name__ == "__main__":
                                 print(*res)
                 elif choice == "3":
                         sub_choice = input("Đầy đủ (f) hoặc thiếu phương trình (me)\nMặc định: f\n").strip().lower()
-                        if sub_choice == "f" or "":
+                        if sub_choice in ["f", ""]:
                                 print("Nhập hệ số a b c d (các hệ số cách nhau bằng một dấu cách)")
                                 inp = []
                                 for _ in range(3):
-                                        inp.extend(list(map(int, input().split())))
+                                        inp.extend(list(map(eval, input().split())))
                                 res = solve_equation_three(*inp, lang=lang)
                                 print("Đáp án:", sep="", end=" ")
                                 if type(res) == str:
@@ -128,7 +151,7 @@ if __name__ == "__main__":
                                 print("Nhập hệ số a b c d (các hệ số cách nhau bằng một dấu cách)")
                                 inp = []
                                 for _ in range(2):
-                                        inp.extend(list(map(int, input().split())))
+                                        inp.extend(list(map(eval, input().split())))
                                 print("Khoảng:")
                                 first = int(input("Cực tiểu: "))
                                 end = int(input("Cực đại: "))
