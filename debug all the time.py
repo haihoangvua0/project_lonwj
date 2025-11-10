@@ -27,7 +27,7 @@ def stor(**var_input: int):
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
     # Nối đường dẫn tuyệt đối tới file muốn mở
-    file_path = os.path.join(BASE_DIR, "draft.txt")
+    file_path = os.path.join(BASE_DIR, "variable.txt")
 
     with open(file_path, "w", encoding="utf-8") as f:
         for i in variable:
@@ -313,7 +313,7 @@ def log(base: float, num: float):
 def ln(num: float):
     if num <= 0:
         raise ValueError("Số cần lấy ln phải > 0")
-    return returning(log(math.e, num))
+    return (log(math.e, num))
 
 def d_dy(expression: str, var: str = "x"):# val: int = 0):
     from sympy import symbols, diff, sympify
@@ -341,49 +341,6 @@ def cm(first: int, end: int, expression: str, var: str = "x"):
     return returning(product(expr, (i, first, end)))
 
 #calc...
-#def evaluate_expression(expr: str, simplify_symbolic=True):
-#    
-#    expr_clean = preprocess_expression(expr)
-#    try:
-#        from sympy import sympify, radsimp, simplify
-#        HAS_SYMPY = True
-#    except Exception:
-#        HAS_SYMPY = False
-#    if HAS_SYMPY:
-#        try:
-#            s = sympify(expr_clean, evaluate=True)
-#            if simplify_symbolic:
-#                return simplify(radsimp(s))
-#            return s
-#        except Exception:
-#            pass
-#    #try:
-#    safe = {
-#            "sin": sin,
-#            "cos": cos,
-#            "tan": tan,
-#            "asin": asin,
-#            "acos": acos,
-#            "atan": atan,
-#            "sqrt": sqrt,
-#            "ln": ln,
-#            "sigma": sigma,
-#            "cm": cm,
-#            "d_dy": d_dy,
-#            "integral": integral,
-#            "log": log,
-#            "nth_root": nth_root,
-#            "returning": returning,
-#            "pi": pi,
-#            "e": e,
-#    }
-#    val = eval(expr_clean, {"__builtins__": {}}, safe)
-#    if isinstance(val, (int, float)):
-#        return returning(val, "S")
-#    return val
-    #except Exception:
-        #return MATH_ERROR
-
 def calc(expr: str, **vars_values):
     from sympy import sympify
 
@@ -512,10 +469,6 @@ if __name__ == "__main__":
     for expr in ["2sin(30)", "3(x+1)", "(x+1)2", "2(x+1)3"]:
         print(f"preprocess_expression('{expr}') = {preprocess_expression(expr)}")
 
-    #print("\n=== Debug: evaluate_expression ===")
-#    for expr in ["2+2", "sin(pi/2)", "sqrt(2)", "x+1"]:
-#        print(f"evaluate_expression('{expr}') = {evaluate_expression(expr)}")
-
     print("\n=== Debug: calc ===")
     for expr in ["2+2", "sin(pi/2)", "sqrt(2)", "x+1"]:
         print(f"calc('{expr}') = {calc(expr)}")
@@ -546,10 +499,10 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"log({base}, {num}) error: {e}")
     for num in [math.e, 10, -1]:
-        #try:
+        try:
             print(f"ln({num}) = {ln(num)}")
-        #except Exception as e:
-            #print(f"ln({num}) error: {e}")
+        except Exception as e:
+            print(f"ln({num}) error: {e}")
 
     print("\n=== Debug: d_dy ===")
     for expr in ["x**2", "sin(x)", "exp(x)", "x**3+2*x"]:
@@ -566,4 +519,4 @@ if __name__ == "__main__":
     print("\n=== Debug: continuous_mul ===")
     for expr in ["x", "x+1"]:
         print(f"cm(1, 4, '{expr}') = {cm(1, 4, expr)}")
-set_angle_mode("DEG")
+#set_angle_mode("DEG")
