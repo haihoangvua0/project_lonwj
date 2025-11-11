@@ -28,14 +28,14 @@ def stor(**var_input: int):
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
     # Nối đường dẫn tuyệt đối tới file muốn mở
-    file_path = os.path.join(BASE_DIR, "draft.txt")
+    file_path = os.path.join(BASE_DIR, "variable.txt")
 
     with open(file_path, "w", encoding="utf-8") as f:
         for i in variable:
             f.write(f"{i}\n")
 
 def rcl(var: str): pass
-    
+
 # 1. Physical Constants
 constants = {
     "General": {
@@ -154,6 +154,10 @@ def returning(n: int | float | Decimal, choice: str = "S"):
         return str(n)
     if abs(n - round(n)) < 1e-10:
         return int(round(n))
+    temp_ = n / pi
+    if (temp_) == int(temp_):
+        return f"{temp_}pi"
+    del temp_
     if choice.upper() == "S":
         if check_irrational(n):
             k = round(n * n)
@@ -176,18 +180,25 @@ def returning(n: int | float | Decimal, choice: str = "S"):
 def preprocess_expression(expr: str) -> str:
     import re
     expr = re.sub(r'\s+', '', expr)
-    expr = re.sub(r'(\d)([A-Za-z\(])', r'\1*\2', expr)
-    expr = re.sub(r'([A-Za-z0-9\)])\(', r'\1*(', expr)
-    expr = re.sub(r'\)([A-Za-z0-9])', r')*\1', expr)
+
+    # Thêm * giữa số và dấu mở ngoặc (2(x+1) ->  2*(x+1))
+    expr = re.sub(r'(\d)\(', r'\1*(', expr)
+
+    # Thêm * giữa ) và số hoặc biến ( (x+1)2 → (x+1)*2 )
+    expr = re.sub(r'\)(\d|[A-Za-z])', r')*\1', expr)
+
+    # Thêm * giữa số và biến (2x → 2*x)
+    expr = re.sub(r'(\d)([A-Za-z])', r'\1*\2', expr)
+
     return expr
 
 def evaluate_expression(expr: str, simplify_symbolic=True):
     expr_clean = preprocess_expression(expr)
-    try:
-        from sympy import sympify, radsimp, simplify
-        HAS_SYMPY = True
-    except Exception:
-        HAS_SYMPY = False
+    #try:
+    from sympy import sympify, radsimp, simplify
+    HAS_SYMPY = True
+    #except Exception:
+        #HAS_SYMPY = False
     if HAS_SYMPY:
         try:
             s = sympify(expr_clean, evaluate=True)
@@ -196,8 +207,8 @@ def evaluate_expression(expr: str, simplify_symbolic=True):
             return s
         except Exception:
             pass
-    try:
-        safe = {
+    #try:
+    safe = {
             "sin": sin,
             "cos": cos,
             "tan": tan,
@@ -215,39 +226,39 @@ def evaluate_expression(expr: str, simplify_symbolic=True):
             "returning": returning,
             "pi": pi,
             "e": e,
-        }
-        safe.update({"pi": pi, "e": e})
-        return eval(expr_clean, {"__builtins__": {}}, safe)
-    except Exception:
-        return MATH_ERROR
+    }
+    safe.update({"pi": pi, "e": e})
+    return eval(expr_clean, {"__builtins__": {}}, safe)
+    #except Exception:
+        #return MATH_ERROR
 
 def solve_eq(expr: str, var='x'):
     from sympy import sympify, Eq, Symbol, solve
     try:
         expr = expr.replace("^", "**")
-        
+
         # Nếu không có dấu "=", coi là =0
         if "=" not in expr:
             expr = expr + "=0"
-        
+
         left, right = expr.split("=")
         left = sympify(left)
         right = sympify(right)
         equation = Eq(left, right)
-        
+
         symbol = Symbol(var)
         sol = solve(equation, symbol)
-        
+
         if not sol:
             return MATH_ERROR
-        
+
         # Chỉ trả nghiệm thực đầu tiên
         for s in sol:
             if s.is_real:
                 x = float(s)
-                stor(x)
+                stor(x=x)
                 return x
-        
+
         return MATH_ERROR
     except Exception:
         return MATH_ERROR
@@ -257,34 +268,7 @@ def solve_eq(expr: str, var='x'):
 def exp(n: int | float):
     return math.exp(n)
 
-def fact_(n: int):
-    if n < 2:
-        return []
-    f, i = [], 2
-    while i * i <= n:
-        c = 0
-        while n % i == 0:
-            n //= i
-            c += 1
-        if c > 0:
-            f.append((i, c))
-        i += 1
-    if n > 1:
-        f.append((n, 1))
-    return f
-
-# Hàm phân tích thừa số nguyên tố cho n rất lớn (n <= 10**10) dùng thuật toán Pollard's Rho
-# Miller-Rabin là thuật toán kiểm tra số nguyên tố xác suất (probabilistic), tức là có xác suất nhỏ trả về kết quả sai (số tổng hợp bị nhận nhầm là nguyên tố), nhưng với số lần lặp đủ lớn thì xác suất sai rất nhỏ, gần như không đáng kể với thực tế. Sàng kiểu "chia thử" (trial division) như đoạn code trên là chính xác tuyệt đối, nhưng chậm hơn nhiều cho số lớn.
-
-# Nếu bạn muốn kiểm tra nguyên tố hoặc phân tích thừa số cho n <= 10**10 mà không dùng random, có thể dùng sàng Eratosthenes để tạo bảng các số nguyên tố nhỏ trước (ví dụ tới 10**6), sau đó chia thử với các số nguyên tố này, phần còn lại nếu lớn hơn 1 thì kiểm tra tiếp bằng các thuật toán phân tích thừa số xác định như Fermat, hoặc dùng sàng phân tích thừa số (Sieve Factorization) - nhưng các thuật toán này đều chậm hơn Pollard's Rho với số lớn.
-
-# Để phân tích thừa số n <= 10**10 mà không dùng random, bạn có thể dùng:
-# - Sàng Eratosthenes để lấy tất cả prime <= sqrt(n)
-# - Chia thử với từng prime đó
-# - Nếu còn lại một số lớn hơn 1, kiểm tra nó có phải nguyên tố không (bằng Miller-Rabin deterministic cho n <= 10**16, hoặc AKS cho mọi n nhưng rất chậm)
-
-# Dưới đây là hàm phân tích thừa số không dùng random, chỉ chia thử với prime nhỏ (tối ưu cho n <= 10**10):
-
+# Hàm phân tích thừa số nguyên tố cho n lớn (n <= 10**10)
 def sieve_primes(limit: int):
     """Trả về list các prime <= limit."""
     sieve = bytearray(b'\x01') * (limit + 1)
@@ -329,6 +313,7 @@ def fact(n: int, primes=None):
     # nếu còn phần > 1 thì đó là một prime (hoặc 1)
     if remaining > 1:
         factors.append((remaining, 1))
+    return factors
 
 def sqrt(n: int | float):
     if n < 0: return MATH_ERROR
@@ -359,7 +344,7 @@ def log(base: float, num: float):
 def ln(num: float):
     if num <= 0:
         raise ValueError("Số cần lấy ln phải > 0")
-    return returning(log(math.e, num))
+    return (log(math.e, num))
 
 def d_dy(expression: str, var: str = "x"):# val: int = 0):
     from sympy import symbols, diff, sympify
@@ -514,11 +499,11 @@ if __name__ == "__main__":
     print("\n=== Debug: preprocess_expression ===")
     for expr in ["2sin(30)", "3(x+1)", "(x+1)2", "2(x+1)3"]:
         print(f"preprocess_expression('{expr}') = {preprocess_expression(expr)}")
-
+    
     print("\n=== Debug: evaluate_expression ===")
     for expr in ["2+2", "sin(pi/2)", "sqrt(2)", "x+1"]:
         print(f"evaluate_expression('{expr}') = {evaluate_expression(expr)}")
-
+    
     print("\n=== Debug: calc ===")
     for expr in ["2+2", "sin(pi/2)", "sqrt(2)", "x+1"]:
         print(f"calc('{expr}') = {calc(expr)}")
