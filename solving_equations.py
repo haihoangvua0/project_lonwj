@@ -12,8 +12,9 @@ def solve_equation_two(a1: int | float, b1: int | float, c1: int | float,
                 x = (c1 - b1 * y) / a1
         else:
                 x = (c2 - b2 * y) / a2
-        return (int(x), int(y)) if (x.is_integer() and y.is_integer()) else (x, y)
-
+        x = int(x) if x.is_integer() else x
+        y = int(y) if y.is_integer() else y
+        return (x, y)
 
 def solve_equation_three(a1: int | float, b1: int | float, c1: int | float, k1: int | float,
                          a2: int | float, b2: int | float, c2: int | float, k2: int | float,
@@ -32,35 +33,18 @@ def solve_equation_three(a1: int | float, b1: int | float, c1: int | float, k1: 
         x = Dx / D
         y = Dy / D
         z = Dz / D
-        return (int(x), int(y), int(z)) if (x.is_integer() and y.is_integer() and z.is_integer()) else (x, y, z)
+        x = int(x) if x.is_integer() else x
+        y = int(y) if y.is_integer() else y
+        z = int(z) if z.is_integer() else z
+        return (x, y, z)
 # list_of_exception = ["No solution!!!", "Vô nghiệm", "Every Real Solution", "Vô số nghiệm"]
-def returning(n: int | float | Decimal, choice: str = "D"):
-        """Chuẩn hóa kết quả số học trước khi hiển thị ra màn hình."""
-        #if choice.upper() == "D":
-        if isinstance(n, Decimal):
-                n = float(n)
-        if n == int(n):
-                return int(n)
-        if abs(n - round(n)) < 1e-9:
-                return int(round(n))
-        if choice.upper() == "D":
-                if abs(n) >= 1e10 or (0 < abs(n) < 1e-6):
-                        return f"{n:.8e}"
-            
-                s = f"{n:.10f}".rstrip("0").rstrip(".")
-                return s
-        elif choice.upper() == "S":
-                from fractions import Fraction
-                frac = Fraction(*n.as_integer_ratio())
-                frac = frac.limit_denominator()
-                return frac
           
 #--------------input-output--------------#
 if __name__ == "__main__":
-        def i_input(prompt: str):
-                inp = input(prompt)
-                process = eval(inp)
-                return process
+        #def i_input(prompt: str):
+        #        inp = input(prompt)
+        #        process = eval(inp)
+        #        return process
         
         lang_input = input("Select language (number):\n1. English\n2. Vietnamese\nDefault: English\n").strip()
         lang = 1 if (lang_input == "" or lang_input == "1") else 2
