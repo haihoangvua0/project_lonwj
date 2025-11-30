@@ -1,5 +1,6 @@
-from decimal import Decimal, getcontext
-getcontext().prec = 12  # độ chính xác toàn cục
+#from decimal import Decimal, getcontext
+#getcontext().prec = 12  # độ chính xác toàn cục
+from process_front_end import *
 def solve_equation_two(a1: int | float, b1: int | float, c1: int | float, 
                        a2: int | float, b2: int | float, c2: int | float, 
                        lang: int = 1) -> tuple[int | float, int | float] | str:
@@ -12,8 +13,8 @@ def solve_equation_two(a1: int | float, b1: int | float, c1: int | float,
                 x = (c1 - b1 * y) / a1
         else:
                 x = (c2 - b2 * y) / a2
-        x = int(x) if x.is_integer() else x
-        y = int(y) if y.is_integer() else y
+        x = returning(x)
+        y = returning(y)
         return (x, y)
 
 def solve_equation_three(a1: int | float, b1: int | float, c1: int | float, k1: int | float,
@@ -33,12 +34,12 @@ def solve_equation_three(a1: int | float, b1: int | float, c1: int | float, k1: 
         x = Dx / D
         y = Dy / D
         z = Dz / D
-        x = int(x) if x.is_integer() else x
-        y = int(y) if y.is_integer() else y
-        z = int(z) if z.is_integer() else z
+        x = returning(x)
+        y = returning(y)
+        z = returning(z)
         return (x, y, z)
 # list_of_exception = ["No solution!!!", "Vô nghiệm", "Every Real Solution", "Vô số nghiệm"]
-          
+
 #--------------input-output--------------#
 if __name__ == "__main__":
         #def i_input(prompt: str):
@@ -139,7 +140,7 @@ if __name__ == "__main__":
                                 print("Khoảng:")
                                 first = int(input("Cực tiểu: "))
                                 end = int(input("Cực đại: "))
-                                check = input("Tiêu chí:\nSố nguyên (Z)\nSố tự nhiên (N)\n Mặc định: N").strip().upper()
+                                check = input("Tiêu chí:\nSố nguyên (Z)\nSố tự nhiên (N)\n Mặc định: N\n").strip().upper()
                                 print("Dự đoán: ")
                                 for z in range(first, end + 1):
                                         res = solve_equation_two(inp[0], inp[1], inp[3] - inp[2]*z,
@@ -151,7 +152,7 @@ if __name__ == "__main__":
                                         if check == "Z":
                                                 if x == int(x) and y == int(y):
                                                         print((int(x), int(y), z))
-                                        elif check == "N" or "":
+                                        elif check == "N" or check == "":
                                                 if x == int(x) and y == int(y) and x >= 0 and y >= 0:
                                                         print((int(x), int(y), z))
                                         else: 
