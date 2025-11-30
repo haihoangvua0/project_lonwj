@@ -1,5 +1,4 @@
-# casio_core.py
-# Backend module for FX-580 simulator (functions collected & refined)
+""" Backend module for FX-580 simulator (functions collected & refined) """
 import math
 from decimal import Decimal, getcontext
 
@@ -7,7 +6,7 @@ from decimal import Decimal, getcontext
 MATH_ERROR = "MATH ERROR"
 pi, e = math.pi, math.e
 
-getcontext().prec = 12
+getcontext().prec = 50
 
 # Variable 
 variable = [0 for _ in range(10)]
@@ -34,7 +33,7 @@ def stor(**var_input: int):
         for i in variable:
             f.write(f"{i}\n")
 
-def rcl(var: str): pass
+#def rcl(var: str): pass
 
 # 1. Physical Constants
 constants = {
@@ -80,6 +79,44 @@ constants = {
         "deg_to_rad": math.pi / 180,
         "rad_to_deg": 180 / math.pi,
     }
+}
+
+actual_val_const = {
+        "c": 2.99792458e8,
+        "g": 9.80665,
+        "h": 6.62607015e-34,
+        "G": 6.67430e-11,
+        "Na": 6.02214076e23,
+        "k": 1.380649e-23,
+        "R": 8.314462618,
+        "eV": 1.602176634e-19,
+        "e": 1.602176634e-19,
+        "mu_0": 1.25663706212e-6,
+        "eps_0": 8.8541878128e-12,
+        "KJ": 4.835978484e14,
+        "RK": 25812.80745,
+    
+    
+        "m_e": 9.1093837015e-31,
+        "m_p": 1.67262192369e-27,
+        "m_n": 1.67492749804e-27,
+        "e_over_me": 1.75882001076e11,
+        "u": 1.66053906660e-27,
+    
+        "atm": 1.01325e5,
+        "Vm": 22.41396954,
+        "F": 96485.33212,
+    
+        "cal": 4.184,
+        "eV": 1.602176634e-19,
+        "mmHg": 133.322368,
+        "inch": 0.0254,
+        "lb": 0.45359237,
+    
+        "phi": (1 + 5 ** 0.5) / 2,
+        "pi": math.pi,
+        "deg_to_rad": math.pi / 180,
+        "rad_to_deg": 180 / math.pi,
 }
 
 def get_constant(name: str):
@@ -151,30 +188,77 @@ def returning(n: int | float | Decimal, choice: str = "S"):
     if isinstance(n, int):
         return n
     if math.isnan(n) or math.isinf(n):
-        return str(n)
-    if abs(n - round(n)) < 1e-10:
+        raise ValueError(MATH_ERROR)
+    # Xử lí số khoa học =))))
+    s = f"{n}"
+    if "e" in s:
+        s = f"{n:.9e}"
+        idx = s.index("e")
+        base_ = s[:idx]
+        exp_ = s[idx:]
+        base_1 = float(base_)
+        if abs(base_1 - round(base_1)) < 1e-20:
+            base_ = str(int(base_1))
+            new_n = float(base_ + exp_)
+            return new_n
+        else:
+            base_ = base_.rstrip("0")
+            new_n = float(base_ + exp_)
+            return new_n
+    if abs(n - round(n)) < 1e-12:
         return int(round(n))
-    temp_ = n / pi
-    if (temp_) == int(temp_):
-        return f"{temp_}pi"
-    del temp_
+    #temp_ = n / pi
+    #if (temp_) == int(temp_) or abs(temp_ - round(temp_)) < 1e-10:
+    #    return f"{temp_}pi"
+    #del temp_
+        
     if choice.upper() == "S":
+        # Chỉ trả về 0 nếu n rất nhỏ (<= 1e-100)
+        if abs(n) <= 1e-100:
+            return 0
         if check_irrational(n):
             k = round(n * n)
             if abs(k - n * n) < 1e-9 and k < 1e6:
                 a, b = sqrt_simplify(k)
+                if b == 0 or a == 0: return 0
                 if b == 1: return str(a)
                 if a == 1: return f"sqrt({b})"
                 return f"{a}sqrt({b})"
-            return f"{n:.10f}".rstrip("0").rstrip(".")
+            num = f"{n:.9f}".rstrip("0").rstrip(".")
+            actual_ = float(num)
+            if actual_ == int(actual_):
+                return int(actual_)
+            return actual_
         from fractions import Fraction
         f = Fraction(n).limit_denominator()
         if f.denominator == 1:
-            return str(f.numerator)
-        return f"{f.numerator}/{f.denominator}"
-    if abs(n) >= 1e10 or (0 < abs(n) < 1e-6):
-        return f"{n:.8e}"
-    return f"{n:.10f}".rstrip("0").rstrip(".")
+            return f.numerator
+        return f
+        # End if choice is 'S'
+    # Chỉ trả về 0 nếu n rất nhỏ (<= 1e-100)
+    if abs(n) <= 1e-100:
+        return 0
+    # Nếu là số dạng 1e{a} với -1 <= a < -100, a nguyên, thì trả về số đó luôn
+    if n != 0 and isinstance(n, float):
+        s = f"{n:.1e}"
+        if "e" in s:
+            base, exp = s.split("e")
+            try:
+                exp = int(exp)
+                if -100 < exp <= -1 and float(base) == 1.0:
+                    return n
+            except Exception:
+                pass
+        del s
+    if n > 1e100:
+        raise ValueError(MATH_ERROR)
+    num = f"{n:.12f}".rstrip("0").rstrip(".")
+    
+    actual = float(num)
+    if actual == int(actual):
+        return int(actual)
+    return actual
+    
 
 # 6. Expression engine
 def preprocess_expression(expr: str) -> str:
@@ -317,7 +401,7 @@ def fact(n: int, primes=None):
 
 def sqrt(n: int | float):
     if n < 0: return MATH_ERROR
-    return returning(math.sqrt(n), "S")
+    return (math.sqrt(n))
 
 def nth_root(base: int | float, ex: int):
     if not isinstance(ex, int) or ex == 0:
@@ -374,14 +458,13 @@ def cm(first: int, end: int, expression: str, var: str = "x"):
 #calc...
 def calc(expr: str, **vars_values):
     from sympy import sympify
-
-
+    expr = preprocess_expression(expr)
     # Biến đổi ^ thành ** cho hợp cú pháp Python
     expr = expr.replace("^", "**")
 
     # Tách các biến từ chuỗi
     symbols = list(sympify(expr).free_symbols)
-
+    global actual_val_const
     if not symbols:
         # Biểu thức không có biến
         # Hỗ trợ các hàm toán học và biến đặc biệt như sqrt, sin, cos, pi, e
@@ -406,7 +489,9 @@ def calc(expr: str, **vars_values):
         }
         #safe_dict.update(vars_values)
         #safe_dict.update({"pi": math.pi, "e": math.e})
-        val = eval(expr, {"__builtins__": None}, safe_dict)
+        
+        all_safe = safe_dict | actual_val_const
+        val = eval(expr, {"__builtins__": None}, all_safe)
         return val
     else:
         # Biểu thức có biến -> cần giá trị
@@ -448,7 +533,7 @@ def calc(expr: str, **vars_values):
             "pi": pi,
             "e": e,
         }
-        avail_var.update(vars_values)
+        avail_var |= vars_values; avail_var |= actual_val_const
         stor(**avail_var)
         local_dict.update(avail_var)
         expr_sp = sympify(expr, locals=local_dict)
@@ -458,102 +543,8 @@ def calc(expr: str, **vars_values):
         val = expr_sp.evalf(subs=vars_values)
         return float(val)
 
-#print(calc("sqrt(x)", x = 9))
+print(calc("sqrt(A)", A = 16))
 
 # Debug time.
 if __name__ == "__main__":
-    print("=== Debug: get_constant ===")
-    for group in constants:
-        for key in constants[group]:
-            try:
-                print(f"{key}: {get_constant(key)}")
-            except Exception as e:
-                print(f"Error with {key}: {e}")
-
-    print("\n=== Debug: set_angle_mode & trig functions ===")
-    for mode in ["DEG", "RAD", "GRA"]:
-        set_angle_mode(mode)
-        print(f"\nAngle mode: {mode}")
-        for val in [0, 30, 45, 60, 90, 180]:
-            print(f"sin({val}) = {sin(val)}")
-            print(f"cos({val}) = {cos(val)}")
-            print(f"tan({val}) = {tan(val)}")
-        for val in [0, 0.5, 1]:
-            print(f"asin({val}) = {asin(val)}")
-            print(f"acos({val}) = {acos(val)}")
-            print(f"atan({val}) = {atan(val)}")
-
-    print("\n=== Debug: sqrt_simplify ===")
-    for n in [4, 8, 12, 18, 20, 50, 72, 100]:
-        print(f"sqrt_simplify({n}) = {sqrt_simplify(n)}")
-
-    print("\n=== Debug: check_irrational ===")
-    for n in [0.5, 1/3, math.sqrt(2), math.pi]:
-        print(f"check_irrational({n}) = {check_irrational(n)}")
-
-    print("\n=== Debug: returning ===")
-    for n in [2, 2.0, 2.0000000001, 1/3, math.sqrt(2), 1e12, 1e-8]:
-        for choice in ["D", "S"]:
-            print(f"returning({n}, '{choice}') = {returning(n, choice)}")
-
-    print("\n=== Debug: preprocess_expression ===")
-    for expr in ["2sin(30)", "3(x+1)", "(x+1)2", "2(x+1)3"]:
-        print(f"preprocess_expression('{expr}') = {preprocess_expression(expr)}")
-    
-    print("\n=== Debug: evaluate_expression ===")
-    for expr in ["2+2", "sin(pi/2)", "sqrt(2)", "x+1"]:
-        print(f"evaluate_expression('{expr}') = {evaluate_expression(expr)}")
-    
-    print("\n=== Debug: calc ===")
-    for expr in ["2+2", "sin(pi/2)", "sqrt(2)", "x+1"]:
-        print(f"calc('{expr}') = {calc(expr)}")
-
-    print("\n=== Debug: solve_eq ===")
-    for expr in ["x+2=5", "x**2-4=0", "x**2+x+1=0"]:
-        print(f"solve_eq('{expr}') = {solve_eq(expr)}")
-
-    print("\n=== Debug: fact ===")
-    for n in [12, 60, 97, 100]:
-        print(f"fact({n}) = {fact(n)}")
-
-    print("\n=== Debug: sqrt ===")
-    for n in [4, 2, 9, 50, -1]:
-        print(f"sqrt({n}) = {sqrt(n)}")
-
-    print("\n=== Debug: nth_root ===")
-    for base, ex in [(8, 3), (16, 4), (-8, 3), (16, -2), (0, 2)]:
-        try:
-            print(f"nth_root({base}, {ex}) = {nth_root(base, ex)}")
-        except Exception as e:
-            print(f"nth_root({base}, {ex}) error: {e}")
-
-    print("\n=== Debug: log & ln ===")
-    for base, num in [(10, 100), (2, 8), (math.e, math.e**2), (1, 10), (10, -1)]:
-        try:
-            print(f"log({base}, {num}) = {log(base, num)}")
-        except Exception as e:
-            print(f"log({base}, {num}) error: {e}")
-    for num in [math.e, 10, -1]:
-        try:
-            print(f"ln({num}) = {ln(num)}")
-        except Exception as e:
-            print(f"ln({num}) error: {e}")
-
-    print("\n=== Debug: d_dy ===")
-    for expr in ["x**2", "sin(x)", "exp(x)", "x**3+2*x"]:
-        print(f"d_dy('{expr}') = {d_dy(expr)}")
-
-    print("\n=== Debug: integral ===")
-    for expr in ["x", "x**2", "sin(x)"]:
-        print(f"integral(0, 1, '{expr}') = {integral(0, 1, expr)}")
-
-    print("\n=== Debug: sigma ===")
-    for expr in ["x", "x**2"]:
-        print(f"sigma(1, 5, '{expr}') = {sigma(1, 5, expr)}")
-
-    print("\n=== Debug: continuous_mul ===")
-    for expr in ["x", "x+1"]:
-        print(f"cm(1, 4, '{expr}') = {cm(1, 4, expr)}")
-set_angle_mode("DEG")
-
-# Mấy hàm cấp cao thì thôi, khỏi nói làm gì, do... nó tốn RAM chạy, mà lỡ đoạn code root này mình áp dụng được lên bo mạch được để tạo ra máy tính mới thì chắc cháy máy. Mình còn đoạn giải phương trình bậc 2, mà bậc 3 thì chưa có. Thêm giúp mình nha.
+    print(returning(sqrt(2)))
