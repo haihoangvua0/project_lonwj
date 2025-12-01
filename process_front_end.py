@@ -96,7 +96,6 @@ actual_val_const = {
         "KJ": 4.835978484e14,
         "RK": 25812.80745,
 
-
         "m_e": 9.1093837015e-31,
         "m_p": 1.67262192369e-27,
         "m_n": 1.67492749804e-27,
@@ -114,7 +113,8 @@ actual_val_const = {
         "lb": 0.45359237,
 
         "phi": (1 + 5 ** 0.5) / 2,
-        "pi": math.pi,
+        "e": e,
+        "pi": pi,
         "deg_to_rad": math.pi / 180,
         "rad_to_deg": 180 / math.pi,
 }
@@ -207,10 +207,6 @@ def returning(n: int | float | Decimal, choice: str = "S"):
             return new_n
     if abs(n - round(n)) < 1e-12:
         return int(round(n))
-    #temp_ = n / pi
-    #if (temp_) == int(temp_) or abs(temp_ - round(temp_)) < 1e-10:
-    #    return f"{temp_}pi"
-    #del temp_
 
     if choice.upper() == "S":
         # Chỉ trả về 0 nếu n rất nhỏ (<= 1e-100)
@@ -248,6 +244,7 @@ def returning(n: int | float | Decimal, choice: str = "S"):
 
 
 # 6. Expression engine
+### Sửa đổi...###
 def preprocess_expression(expr: str) -> str:
     import re
     expr = re.sub(r'\s+', '', expr)
@@ -265,10 +262,16 @@ def preprocess_expression(expr: str) -> str:
 
     # 3) Ngoặc rồi tới số/biến
     expr = re.sub(r'\)(\d|[A-Za-z])', r')*\1', expr)
-
+    # 5) Số và biến đặc biệt (e, pi, phi, ...)
+    expr = re.sub(r'(\d)(e|pi|phi)',
+                   lambda m: m.group(1) + "*" + m.group(2) \
+                    if m.group(2) in ("e", "pi", "phi") \
+                         and not re.match(r'^\d+(\.\d+)?e\d+$', 
+                                          m.group(1) + m.group(2)) \
+                         else m.group(1) + m.group(2), 
+                         expr)
     # 4) Số và biến (CHỈ biến 1 ký tự)
     expr = re.sub(r'(\d)([A-Za-z])', r'\1*\2', expr)
-
     return expr
 
 def evaluate_expression(expr: str, simplify_symbolic=True):
@@ -564,6 +567,7 @@ rcl()
 # Debug time.
 if __name__ == "__main__":
     from sympy import sympify
+    import re
     print("### Calculator run and test ###")
     print("Choose mode: ")
     while True:
@@ -578,11 +582,23 @@ if __name__ == "__main__":
                 expr = input("Input expression: ")
                 if expr.strip() == "mode":
                     break
-                
-                expr = preprocess_expression(expr)
+                if expr.strip() == "quit": exit(0)
+                # Fix: Don't preprocess if input is scientific notation only
+                sci_notation_pattern = r'^\d+(\.\d+)?e[+-]?\d+$'
+                if not re.match(sci_notation_pattern, expr.strip(), re.IGNORECASE):
+                    expr = preprocess_expression(expr)
                 f_symbol = list(sympify(expr).free_symbols)
-                if any((not (i in names)) for i in f_symbol):
-                    print(MATH_ERROR); from time import sleep; sleep(2)
+                match = lambda var_name: re.match(r"^e[+-]?\d+$", str(var_name)) is not None
+                miss_var = []
+                for i in f_symbol:
+                    if match(i):
+                        f_symbol.remove(i)
+                        continue
+                    if not (i in names) or not (i in actual_val_const.keys()):
+                        miss_var.append(i)
+                if miss_var:
+                    print("Vars:", miss_var)
+                    from time import sleep; sleep(2)
                 else:
                     if not f_symbol:
                         print("Result:", evaluate_expression(expr))
@@ -594,8 +610,8 @@ if __name__ == "__main__":
                                 v_in = input(f"{v} = ")
                                 if v_in.strip() == "":
                                     continue
-                                val_v.update({v, returning(v_in)})
-                            print("Result:", calc(expression))
+                                val_v.update({v: returning(v_in)})
+                            print("Result:", calc(expr, **val_v))
         elif choice.strip() == "2":
             print("UPDATING...")
         elif choice.strip() == "3":
