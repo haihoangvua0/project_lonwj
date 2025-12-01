@@ -1,7 +1,8 @@
 """ Backend module for FX-580 simulator (functions collected & refined) """
 import math
 from decimal import Decimal, getcontext
-
+from polynomial_equations import *
+from solving_equations import *
 
 MATH_ERROR = "MATH ERROR"
 pi, e = math.pi, math.e
@@ -11,9 +12,9 @@ getcontext().prec = 50
 # Variable 
 variable = [0 for _ in range(10)]
 A, B, C, D, E, F, x, y, z, M = variable
+names = ["A", "B", "C", "D", "E", "F", "x", "y", "z", "M"]
 def stor(**var_input: int):
-    global variable, A, B, C, D, E, F, x, y, z, M
-    names = ["A", "B", "C", "D", "E", "F", "x", "y", "z", "M"]
+    global variable, A, B, C, D, E, F, x, y, z, M, names
     # Cập nhật variable theo var_input
     for k, v in var_input.items():
         # Nếu tên biến hợp lệ (A, B, C, D, E, F, x, y, z, M)
@@ -32,8 +33,7 @@ def stor(**var_input: int):
     with open(file_path, "w", encoding="utf-8") as f:
         for i in variable:
             f.write(f"{i}\n")
-
-#def rcl(var: str): pass
+        
 
 # 1. Physical Constants
 constants = {
@@ -95,24 +95,24 @@ actual_val_const = {
         "eps_0": 8.8541878128e-12,
         "KJ": 4.835978484e14,
         "RK": 25812.80745,
-    
-    
+
+
         "m_e": 9.1093837015e-31,
         "m_p": 1.67262192369e-27,
         "m_n": 1.67492749804e-27,
         "e_over_me": 1.75882001076e11,
         "u": 1.66053906660e-27,
-    
+
         "atm": 1.01325e5,
         "Vm": 22.41396954,
         "F": 96485.33212,
-    
+
         "cal": 4.184,
         "eV": 1.602176634e-19,
         "mmHg": 133.322368,
         "inch": 0.0254,
         "lb": 0.45359237,
-    
+
         "phi": (1 + 5 ** 0.5) / 2,
         "pi": math.pi,
         "deg_to_rad": math.pi / 180,
@@ -211,26 +211,13 @@ def returning(n: int | float | Decimal, choice: str = "S"):
     #if (temp_) == int(temp_) or abs(temp_ - round(temp_)) < 1e-10:
     #    return f"{temp_}pi"
     #del temp_
-        
+
     if choice.upper() == "S":
         # Chỉ trả về 0 nếu n rất nhỏ (<= 1e-100)
         if abs(n) <= 1e-100:
             return 0
-        if check_irrational(n):
-            k = round(n * n)
-            if abs(k - n * n) < 1e-9 and k < 1e6:
-                a, b = sqrt_simplify(k)
-                if b == 0 or a == 0: return 0
-                if b == 1: return str(a)
-                if a == 1: return f"sqrt({b})"
-                return f"{a}sqrt({b})"
-            num = f"{n:.9f}".rstrip("0").rstrip(".")
-            actual_ = float(num)
-            if actual_ == int(actual_):
-                return int(actual_)
-            return actual_
         from fractions import Fraction
-        f = Fraction(n).limit_denominator()
+        f = Fraction(*n.as_integer_ratio()).limit_denominator()
         if f.denominator == 1:
             return f.numerator
         return f
@@ -253,68 +240,85 @@ def returning(n: int | float | Decimal, choice: str = "S"):
     if n > 1e100:
         raise ValueError(MATH_ERROR)
     num = f"{n:.12f}".rstrip("0").rstrip(".")
-    
+
     actual = float(num)
     if actual == int(actual):
         return int(actual)
     return actual
-    
+
 
 # 6. Expression engine
 def preprocess_expression(expr: str) -> str:
     import re
     expr = re.sub(r'\s+', '', expr)
 
-    # Thêm * giữa số và dấu mở ngoặc (2(x+1) ->  2*(x+1))
+    # Danh sách hàm multi-char
+    funcs = ["sqrt", "sin", "cos", "tan", "asin", "acos", "atan",
+             "log", "ln", "exp", "sigma", "cm", "integral", "nth_root"]
+
+    # 1) Thêm * giữa số và hàm:  2sqrt → 2*sqrt
+    for f in funcs:
+        expr = re.sub(rf'(\d)({f})', rf'\1*\2', expr)
+
+    # 2) Số trước ngoặc
     expr = re.sub(r'(\d)\(', r'\1*(', expr)
 
-    # Thêm * giữa ) và số hoặc biến ( (x+1)2 → (x+1)*2 )
+    # 3) Ngoặc rồi tới số/biến
     expr = re.sub(r'\)(\d|[A-Za-z])', r')*\1', expr)
 
-    # Thêm * giữa số và biến (2x → 2*x)
+    # 4) Số và biến (CHỈ biến 1 ký tự)
     expr = re.sub(r'(\d)([A-Za-z])', r'\1*\2', expr)
 
     return expr
 
 def evaluate_expression(expr: str, simplify_symbolic=True):
     expr_clean = preprocess_expression(expr)
-    #try:
-    from sympy import sympify, radsimp, simplify
+
+    from sympy import sympify, radsimp, simplify as sym_simplify
     HAS_SYMPY = True
-    #except Exception:
-        #HAS_SYMPY = False
+
     if HAS_SYMPY:
         try:
             s = sympify(expr_clean, evaluate=True)
+
             if simplify_symbolic:
-                return simplify(radsimp(s))
-            return s
+                s = sym_simplify(radsimp(s))
+
+            # Nếu s là số (Integer/Float/Rational) → convert về Python
+            if s.is_real:
+                # Integer
+                if s.is_integer:
+                    return int(s)
+                # Rational
+                if s.is_rational:
+                    return float(s)
+                # Float
+                return float(s)
+
+            # Nếu là biểu thức, trả về chuỗi (hoặc tùy bạn)
+            # return str(s)
+
         except Exception:
             pass
-    #try:
+
+    # Nếu SymPy fail -> eval thủ công
     safe = {
-            "sin": sin,
-            "cos": cos,
-            "tan": tan,
-            "asin": asin,
-            "acos": acos,
-            "atan": atan,
-            "sqrt": sqrt,
-            "ln": ln,
-            "sigma": sigma,
-            "cm": cm,
-            "d_dy": d_dy,
-            "integral": integral,
-            "log": log,
-            "nth_root": nth_root,
-            "returning": returning,
-            "pi": pi,
-            "e": e,
+        "sin": sin, "cos": cos, "tan": tan,
+        "asin": asin, "acos": acos, "atan": atan,
+        "sqrt": sqrt,
+        "ln": ln,
+        "sigma": sigma,
+        "cm": cm,
+        "d_dy": d_dy,
+        "integral": integral,
+        "log": log,
+        "nth_root": nth_root,
+        "returning": returning,
+        "pi": pi,
+        "e": e,
     }
-    safe.update({"pi": pi, "e": e})
+
     return eval(expr_clean, {"__builtins__": {}}, safe)
-    #except Exception:
-        #return MATH_ERROR
 
 def solve_eq(expr: str, var='x'):
     from sympy import sympify, Eq, Symbol, solve
@@ -489,7 +493,7 @@ def calc(expr: str, **vars_values):
         }
         #safe_dict.update(vars_values)
         #safe_dict.update({"pi": math.pi, "e": math.e})
-        
+
         all_safe = safe_dict | actual_val_const
         val = eval(expr, {"__builtins__": None}, all_safe)
         return val
@@ -543,8 +547,72 @@ def calc(expr: str, **vars_values):
         val = expr_sp.evalf(subs=vars_values)
         return float(val)
 
-print(calc("sqrt(A)", A = 16))
+# Update số khi khởi đầu.
+def rcl():
+    global variable
+    import os
 
+    # Lấy thư mục chứa file hiện tại
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # Nối đường dẫn tuyệt đối tới file muốn mở
+    file_path = os.path.join(BASE_DIR, "variable.txt")
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        variable = list(map(returning, map(evaluate_expression, f.read().splitlines())))
+rcl()
 # Debug time.
 if __name__ == "__main__":
-    print(returning(sqrt(2)))
+    from sympy import sympify
+    print("### Calculator run and test ###")
+    print("Choose mode: ")
+    while True:
+        print("1. Calculate\n2. Complex\n3. Base-N\n4. Matrix\n5. Vector\n6. Statistics\n7. Distribution\n8. Table\n9. Equation(s)\n10. Inequality\n11. Verify\n\"quit\": exit")
+        choice = input("Input: ")
+        if choice.strip() == "quit":
+            print("See ya =))))")
+            break
+        if choice.strip() == "1":
+            print("If you wanna calculate expression with variable\nthen add \"[calc]\" at the end.\n\"mode\" to return.")
+            while True:
+                expr = input("Input expression: ")
+                if expr.strip() == "mode":
+                    break
+                
+                expr = preprocess_expression(expr)
+                f_symbol = list(sympify(expr).free_symbols)
+                if any((not (i in names)) for i in f_symbol):
+                    print(MATH_ERROR); from time import sleep; sleep(2)
+                else:
+                    if not f_symbol:
+                        print("Result:", evaluate_expression(expr))
+                    else:
+                        if "[calc]" in expr:
+                            val_v = {}
+                            print("Input value of variable.")
+                            for v in f_symbol:
+                                v_in = input(f"{v} = ")
+                                if v_in.strip() == "":
+                                    continue
+                                val_v.update({v, returning(v_in)})
+                            print("Result:", calc(expression))
+        elif choice.strip() == "2":
+            print("UPDATING...")
+        elif choice.strip() == "3":
+            print("UPDATING...")
+        elif choice.strip() == "4":
+            print("UPDATING...")
+        elif choice.strip() == "5":
+            print("UPDATING...")
+        elif choice.strip() == "6":
+            print("UPDATING...")
+        elif choice.strip() == "7":
+            print("UPDATING...")
+        elif choice.strip() == "8":
+            print("UPDATING...")
+        elif choice.strip() == "9":
+            print("UPDATING...")
+        elif choice.strip() == "10":
+            print("UPDATING...")
+        elif choice.strip() == "11":
+            print("UPDATING...")
