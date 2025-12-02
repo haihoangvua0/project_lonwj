@@ -1,5 +1,5 @@
 """ Backend module for FX-580 simulator (functions collected & refined) """
-import """ Backend module for FX-580 simulator (functions collected & refined) """
+
 import math
 from decimal import Decimal, getcontext
 from polynomial_equations import *
