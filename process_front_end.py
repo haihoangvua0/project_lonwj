@@ -1,9 +1,11 @@
+print("RUNNING...")
 """ Backend module for FX-580 simulator (functions collected & refined) """
 import math
 from decimal import Decimal, getcontext
 from polynomial_equations import *
 from solving_equations import *
-from base_N import *
+import os
+#from base_N import *
 
 MATH_ERROR = "MATH ERROR"
 pi, e = math.pi, math.e
@@ -14,6 +16,7 @@ getcontext().prec = 50
 variable = [0 for _ in range(10)]
 A, B, C, D, E, F, x, y, z, M = variable
 names = ["A", "B", "C", "D", "E", "F", "x", "y", "z", "M"]
+Ans = 0
 def stor(**var_input: int):
     global variable, A, B, C, D, E, F, x, y, z, M, names
     # Cập nhật variable theo var_input
@@ -23,7 +26,6 @@ def stor(**var_input: int):
             idx = names.index(k)
             variable[idx] = v
     A, B, C, D, E, F, x, y, z, M = variable
-    import os
 
     # Lấy thư mục chứa file hiện tại
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -34,7 +36,7 @@ def stor(**var_input: int):
     with open(file_path, "w", encoding="utf-8") as f:
         for i in variable:
             f.write(f"{i}\n")
-        
+
 
 # 1. Physical Constants
 constants = {
@@ -135,8 +137,19 @@ def set_angle_mode(mode: str):
     if mode not in ("DEG", "RAD", "GRA"):
         raise ValueError(MATH_ERROR)
     ANGLE_MODE = mode
+    import os
+
+    # Lấy thư mục chứa file hiện tại
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # Nối đường dẫn tuyệt đối tới file muốn mở
+    file_path = os.path.join(BASE_DIR, "mode_angle.txt")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(ANGLE_MODE)
 
 def _to_radian_if_needed(x: float):
+    global ANGLE_MODE
     if ANGLE_MODE == "DEG":
         return math.radians(x)
     if ANGLE_MODE == "GRA":
@@ -214,6 +227,17 @@ def returning(n: int | float | Decimal, choice: str = "S"):
         if abs(n) <= 1e-100:
             return 0
         from fractions import Fraction
+        if check_irrational(n):
+            #print(True)
+            k = round(n * n)
+            if abs(k - n * n) < 1e-9 and k < 1e6:
+                a, b = sqrt_simplify(k)
+                if a == 0 or b == 0: return 0
+                elif a == 1: return sqrt(b)
+                elif b == 1: return a
+                elif a != 1 and b != 1: return a * sqrt(b)
+                else: return n
+            else: return n
         f = Fraction(*n.as_integer_ratio()).limit_denominator()
         if f.denominator == 1:
             return f.numerator
@@ -223,7 +247,7 @@ def returning(n: int | float | Decimal, choice: str = "S"):
     if abs(n) <= 1e-100:
         return 0
     if n > 1e100:
-        raise ValueError(MATH_ERROR)
+        return float('inf')
     num = f"{n:.12f}".rstrip("0").rstrip(".")
 
     actual = float(num)
@@ -252,7 +276,7 @@ def preprocess_expression(expr: str) -> str:
     # -------------------------------
     # 2) Insert multipliers
     # -------------------------------
-    
+
     # number + function
     for f in funcs:
         expr = re.sub(rf'(\d)({f})', r'\1*\2', expr)
@@ -499,7 +523,7 @@ def calc(expr: str, **vars_values):
 
     # Tách các biến từ chuỗi
     symbols = list(sympify(expr).free_symbols)
-    global actual_val_const
+    global actual_val_const, A, B, C, D, E, F, x, y, z, M
     if not symbols:
         # Biểu thức không có biến
         # Hỗ trợ các hàm toán học và biến đặc biệt như sqrt, sin, cos, pi, e
@@ -604,7 +628,6 @@ def factorial(n: int | float):
 # Update số khi khởi đầu.
 def rcl():
     global variable
-    import os
 
     # Lấy thư mục chứa file hiện tại
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -615,58 +638,79 @@ def rcl():
     with open(file_path, "r", encoding="utf-8") as f:
         variable = list(map(returning, map(evaluate_expression, f.read().splitlines())))
 rcl()
-# Debug time.
-if __name__ == "__main__":
-    from sympy import sympify
-    print("### Calculator run and test ###")
-    print("Choose mode: ")
-    while True:
-        print("1. Calculate\n2. Complex\n3. Base-N\n4. Matrix\n5. Vector\n6. Statistics\n7. Distribution\n8. Table\n9. Equation(s)\n10. Inequality\n11. Verify\n\"quit\": exit")
-        choice = input("Input: ")
-        if choice.strip() == "quit":
-            print("See ya =))))")
-            break
-        if choice.strip() == "1":
-            print("If you wanna calculate expression with variable\nthen add \"[calc]\" at the end.\n\"mode\" to return.")
-            while True:
-                expr = input("Input expression: ")
-                if expr.strip() == "mode":
-                    break
-                elif expr.strip() == "quit": exit(0)
-                if "[calc]" in expr:
-                    expr = expr.replace("[calc]", "")
-                    expr = preprocess_expression(expr)
-                    f_symbol = list(sympify(expr).free_symbols)
-                    if not f_symbol:
-                        print("Result:", evaluate_expression(expr))
-                    else:
-                        val_v = {}
-                        print("Input value of variable.")
-                        for v in f_symbol:
-                            v_in = input(f"{v} = ")
-                            if v_in.strip() == "":
-                                continue
-                            val_v.update({str(v): returning(float(v_in))})
-                        print("Result:", calc(expr, **val_v))
-                else:
-                    print("Result:", evaluate_expression(expr))
-        elif choice.strip() == "2":
-            print("UPDATING...")
-        elif choice.strip() == "3":
-            print("UPDATING...")
-        elif choice.strip() == "4":
-            print("UPDATING...")
-        elif choice.strip() == "5":
-            print("UPDATING...")
-        elif choice.strip() == "6":
-            print("UPDATING...")
-        elif choice.strip() == "7":
-            print("UPDATING...")
-        elif choice.strip() == "8":
-            print("UPDATING...")
-        elif choice.strip() == "9":
-            print("UPDATING...")
-        elif choice.strip() == "10":
-            print("UPDATING...")
-        elif choice.strip() == "11":
-            print("UPDATING...")
+# lst_of_cmd = ["[solve]", '[calc]', "[settings]"]
+dict_of_setting = {
+    "Angle unit": ANGLE_MODE,
+    "Statistics": 0, # Freq on or of
+    "Equation/ Function": 0, # Mở kết quả số phức
+    "Table": 1 # f(x) / f(x), g(x)
+    #"Language" # 1. English/ 2. Tiếng Việt
+}
+lst_of_stop = ["stop", "off", "exit", "quit"]
+def stat_setting(choice: int):
+
+    # Lấy thư mục chứa file hiện tại
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # Nối đường dẫn tuyệt đối tới file muốn mở
+    file_path = os.path.join(BASE_DIR, "statistics.txt")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(f"{choice}")
+def eq_fu_settings(choice: int):
+
+    # Lấy thư mục chứa file hiện tại
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # Nối đường dẫn tuyệt đối tới file muốn mở
+    file_path = os.path.join(BASE_DIR, "equation_funcs.txt")
+    
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(f"{choice}")
+
+def table_settings(choice: int):
+
+    # Lấy thư mục chứa file hiện tại
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # Nối đường dẫn tuyệt đối tới file muốn mở
+    file_path = os.path.join(BASE_DIR, "table.txt")
+    
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(f"{choice}")
+def stor_settings():
+    global ANGLE_MODE, dict_of_settings
+
+    # Lấy thư mục chứa file hiện tại
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # Nối đường dẫn tuyệt đối tới file muốn mở
+    file_path = os.path.join(BASE_DIR, "mode_angle.txt")
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        ANGLE_MODE = f.readline()
+        dict_of_setting["Angle unit"] = ANGLE_MODE
+        
+    file_path = os.path.join(BASE_DIR, "statistics.txt")
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        dict_of_setting["Statistics"] = int(f.readline())
+        
+    file_path = os.path.join(BASE_DIR, "equation_funcs.txt")
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        dict_of_setting["Equation/ Function"] = int(f.readline())
+    
+    file_path = os.path.join(BASE_DIR, "table.txt")
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        dict_of_setting["Table"] = int(f.readline())
+#debug line
+#from time import sleep
+#print("Set data")
+#sleep(1.5)
+#print("Debugging...")
+#print(solve_eq("x**2+B", {"B": -1})) 
+#BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+#file_path = os.path.join(BASE_DIR, "run.txt")
+print("RUN ONCE")
