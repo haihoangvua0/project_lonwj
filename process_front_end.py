@@ -1,4 +1,4 @@
-print("RUNNING...")
+#print("RUNNING...")
 """ Backend module for FX-580 simulator (functions collected & refined) """
 import math
 from decimal import Decimal, getcontext
@@ -156,24 +156,60 @@ def _to_radian_if_needed(x: float):
         return x * math.pi / 200
     return x
 
-# 3. Trig functions (Casio-compatible)
+# 3. Trig functions (Casio-compatible) + Hypebolic Funcs
 def sin(x: float): return math.sin(_to_radian_if_needed(x))
 def cos(x: float): return math.cos(_to_radian_if_needed(x))
 def tan(x: float):
     a = _to_radian_if_needed(x)
-    if math.isclose(math.cos(a), 0, abs_tol=1e-12):
+    if math.isclose(math.cos(a), 0, abs_tol=1e-15):
         return float("inf")
     return math.tan(a)
+
 def asin(x: float):
     v = math.asin(x)
-    return math.degrees(v) if ANGLE_MODE == "DEG" else v
+    if ANGLE_MODE == "DEG":
+        return math.degrees(v)
+    if ANGLE_MODE == "GRA":
+        return v * 200 / math.pi
+    return v   # RAD
+
 def acos(x: float):
     v = math.acos(x)
-    return math.degrees(v) if ANGLE_MODE == "DEG" else v
+    if ANGLE_MODE == "DEG":
+        return math.degrees(v)
+    if ANGLE_MODE == "GRA":
+        return v * 200 / math.pi
+    return v   # RAD
+
 def atan(x: float):
     v = math.atan(x)
-    return math.degrees(v) if ANGLE_MODE == "DEG" else v
+    if ANGLE_MODE == "DEG":
+        return math.degrees(v)
+    if ANGLE_MODE == "GRA":
+        return v * 200 / math.pi
+    return v   # RAD
 
+def sinh(x: float):
+    return math.sinh(x)
+
+def cosh(x: float):
+    return math.cosh(x)
+
+def tanh(x: float):
+    return math.tanh(x)
+
+def asinh(x: float):
+    v = math.asinh(x)
+    # inverse hyperbolic KHÔNG phụ thuộc chế độ DEG/RAD/GRA
+    return v
+
+def acosh(x: float):
+    v = math.acosh(x)
+    return v
+
+def atanh(x: float):
+    v = math.atanh(x)
+    return v
 # 4. Core helpers
 def sqrt_simplify(n: int):
     if n < 0:
@@ -467,51 +503,71 @@ def nth_root(base: int | float, ex: int):
         raise ValueError(MATH_ERROR)
     if base < 0:
         if ex % 2 == 0:
-            return MATH_ERROR
-        result = -float(pow(abs(base), 1 / abs(ex)))
-    else:
-        result = float(pow(base, 1 / abs(ex)))
-    if ex < 0:
-        if result == 0: return MATH_ERROR
-        result = 1 / result
+            raise ValueError(MATH_ERROR + ". The number must be over 0")
+    elif ex < 0:
+        raise ValueError(MATH_ERROR)
+    result = float(pow(base, 1 / ex))
     return returning(result)
 
 # 8. Differentials + log
-def log(base: float, num: float):
+def log(base: float, num: float | None = None):
+    # Trường hợp chỉ truyền 1 tham số → log(num) = log_base10(num)
+    if num is None:
+        num = base      # lúc này "base" chính là số cần log
+        base = 10       # mặc định logarithm cơ số 10
+
+    # Kiểm tra hợp lệ
     if base <= 0 or base == 1:
-        raise ValueError("Cơ số phải > 0 và != 1")
+        raise ValueError("Base must be over 0 and not equal to 1")
     if num <= 0:
-        raise ValueError("Số cần lấy log phải > 0")
-    return returning(math.log(num, base))
+        raise ValueError("Number needs to be over 0")
+
+    # Tính log
+    try:
+        return returning(math.log(num, base))
+    except Exception:
+        raise ValueError(MATH_ERROR)
 
 def ln(num: float):
     if num <= 0:
-        raise ValueError("Số cần lấy ln phải > 0")
+        raise ValueError("The number must be over 0")
     return (log(math.e, num))
 
-def d_dy(expression: str, var: str = "x"):# val: int = 0):
+def d_dy(expression: str, val: int | None = None):
     from sympy import symbols, diff, sympify
-    x = symbols(var)
-    expr = sympify(expression)
-    return diff(expr, x)
+
+    x = symbols("x")
+    expr = sympify(preprocess_expression(expression))
+
+    # Nếu không truyền giá trị -> trả về biểu thức đạo hàm
+    derivative = diff(expr, x)
+
+    if val is None:
+        return derivative
+    else:
+        # Trả về giá trị đạo hàm tại x = val
+        try:
+            return derivative.subs(x, val)
+        except Exception:
+            raise ValueError(MATH_ERROR + ". The expression needs fix...")
 
 def integral(low: float, high: float, expression: str, var: str = "x"):
     from sympy import symbols, integrate, sympify
     x = symbols(var)
-    expr = sympify(expression)
+    expr = sympify(preprocess_expression(expression))
     return returning(integrate(expr, (x, low, high)))
 
 # 9. Tổng / Tích liên tục
 def sigma(first: int, end: int, expression: str, var: str = "x"):
     from sympy import symbols, summation, sympify
     i = symbols(var)
-    expr = sympify(expression)
+    expr = sympify(preprocess_expression(expression))
     return returning(summation(expr, (i, first, end)))
 
 def cm(first: int, end: int, expression: str, var: str = "x"):
     from sympy import symbols, product, sympify
     i = symbols(var)
-    expr = sympify(expression)
+    expr = sympify(preprocess_expression(expression))
     return returning(product(expr, (i, first, end)))
 
 #calc...
@@ -706,11 +762,18 @@ def stor_settings():
     with open(file_path, "r", encoding="utf-8") as f:
         dict_of_setting["Table"] = int(f.readline())
 #debug line
-#from time import sleep
-#print("Set data")
-#sleep(1.5)
-#print("Debugging...")
-#print(solve_eq("x**2+B", {"B": -1})) 
-#BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-#file_path = os.path.join(BASE_DIR, "run.txt")
-print("RUN ONCE")
+from time import sleep
+print("Set data")
+sleep(1.5)
+print("Debugging...")
+res = []
+res.append(str(solve_eq("x**2+B", {"B": -1}))+"\n")
+res.append(str(evaluate_expression("2x+1-3"))+"\n")
+res.append(str(calc("2A - 3", A=6))+"\n")
+res.append(str(returning(sqrt(2)))+"\n")
+res.append(str(d_dy("x^2 + 2x + 1", 9)))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+file_path = os.path.join(BASE_DIR, "run.txt")
+with open(file_path, "w", encoding="utf-8") as f:
+    f.writelines(res)
+print("Done")
