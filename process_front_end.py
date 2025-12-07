@@ -2,8 +2,8 @@
 """ Backend module for FX-580 simulator (functions collected & refined) """
 import math
 from decimal import Decimal, getcontext
-from polynomial_equations import *
-from solving_equations import *
+#from polynomial_equations import *
+#from solving_equations import *
 import os
 #from base_N import *
 
@@ -17,6 +17,8 @@ variable = [0 for _ in range(10)]
 A, B, C, D, E, F, x, y, z, M = variable
 names = ["A", "B", "C", "D", "E", "F", "x", "y", "z", "M"]
 Ans = 0
+PreAns = 0
+
 def stor(**var_input: int):
     global variable, A, B, C, D, E, F, x, y, z, M, names
     # Cập nhật variable theo var_input
@@ -39,7 +41,7 @@ def stor(**var_input: int):
 
 
 # 1. Physical Constants
-constants = {
+'''constants = {
     "General": {
         "c": 2.99792458e8,
         "g": 9.80665,
@@ -82,51 +84,45 @@ constants = {
         "deg_to_rad": math.pi / 180,
         "rad_to_deg": 180 / math.pi,
     }
-}
-
-actual_val_const = {
-        "c": 2.99792458e8,
-        "g": 9.80665,
-        "h": 6.62607015e-34,
-        "G": 6.67430e-11,
-        "Na": 6.02214076e23,
-        "k": 1.380649e-23,
-        "R": 8.314462618,
-        "eV": 1.602176634e-19,
-        "e": 1.602176634e-19,
-        "mu_0": 1.25663706212e-6,
-        "eps_0": 8.8541878128e-12,
-        "KJ": 4.835978484e14,
-        "RK": 25812.80745,
-
-
-        "m_e": 9.1093837015e-31,
-        "m_p": 1.67262192369e-27,
-        "m_n": 1.67492749804e-27,
-        "e_over_me": 1.75882001076e11,
-        "u": 1.66053906660e-27,
-
-        "atm": 1.01325e5,
-        "Vm": 22.41396954,
-        "F": 96485.33212,
-
-        "cal": 4.184,
-        "eV": 1.602176634e-19,
-        "mmHg": 133.322368,
-        "inch": 0.0254,
-        "lb": 0.45359237,
-
-        "phi": (1 + 5 ** 0.5) / 2,
-        "pi": math.pi,
-        "deg_to_rad": math.pi / 180,
-        "rad_to_deg": 180 / math.pi,
-}
-
-def get_constant(name: str):
+}'''
+'''def get_constant(name: str):
     for group in constants.values():
         if name in group:
             return group[name]
-    raise KeyError(MATH_ERROR)
+    raise KeyError(MATH_ERROR)'''
+actual_val_const = {
+        "mp": 1.672621898e-27,
+        "mn": 1.674927471e-27,
+        "me": 9.10938356e-31,
+        "m_mu": 1.883531594e-28,
+        "a0": 5.291772107e-11,
+        "h": 6.62607004e-34,        # Hằng số Plank
+        "muN": 5.050783699e-27,
+        "muB": 9.274009994e-24,
+        "h_": 1.0545718e-34,
+        "alpha": 7.297352566e-3,
+        "re": 2.817940323e-15,
+        "lambda_c": 2.426310237e-12,
+        "gamma_p": 267522190,
+        "lambda_cp": 1.321409854e-15,
+        "lambda_cn": 1.319590905e-15,
+        "R_inf": 10973731.57,
+        "u": 1.66053904e-27,
+        "mu_p": 1.410606787e-26,
+        "mu_e": -9.28476462e-24,
+        "mu_n": -9.662365e-27,
+        "mu_mu": -4.49044826e-26,
+        "f": 96485.33289,
+        "e_": 1.602176621e-19,
+        "NA": 6.022140857e23,
+        "k": 1.38064852e-23,
+        "Vm": 0.022710947,
+        "R": 8.3144598,
+        "C_0": 299792458,           # Tốc độ ánh sáng
+        "C_1": 3.74177179e-16,
+        "C_2": 0.0143877736,
+        "sigma": 5.670367e-8
+}
 
 # 2. Angle mode (global)
 ANGLE_MODE = "DEG"
@@ -211,28 +207,7 @@ def atanh(x: float):
     v = math.atanh(x)
     return v
 # 4. Core helpers
-def sqrt_simplify(n: int):
-    if n < 0:
-        return (1, n)
-    a, b = 1, n
-    i = 2
-    while i * i <= b:
-        while b % (i * i) == 0:
-            b //= i * i
-            a *= i
-        i += 1
-    return (a, b)
-
-def check_irrational(n: float) -> bool:
-    try:
-        from fractions import Fraction
-        f = Fraction(n).limit_denominator()
-        return abs(float(f) - n) > 1e-50
-    except Exception:
-        return True
-
-# 5. Unified returning()
-def returning(n: int | float | Decimal, choice: str = "S"):
+def comp_returning(n: float | int | Decimal, choice: str = "S"):
     if isinstance(n, Decimal):
         n = float(n)
     if isinstance(n, int):
@@ -257,7 +232,73 @@ def returning(n: int | float | Decimal, choice: str = "S"):
             return new_n
     if abs(n - round(n)) < 1e-12:
         return int(round(n))
+    # Chỉ trả về 0 nếu n rất nhỏ (<= 1e-100)
+    if abs(n) <= 1e-100:
+        return 0
+    if n > 1e100:
+        return float('inf')
+    if choice == "S":
+        from fractions import Fraction
+        f = Fraction(*n.as_integer_ratio()).limit_denominator()
+        if f.denominator == 1:
+            return f.numerator
+        return f
+    num = f"{n:.12f}".rstrip("0").rstrip(".")
 
+    actual = float(num)
+    if actual == int(actual):
+        return int(actual)
+    return actual
+def sqrt_simplify(n: float | int) -> tuple[float | int, float | int, int]:
+    """
+    Phân tích n thành dạng a + b*sqrt(c) với a, b là số thực hoặc nguyên, c là số nguyên dương (ưu tiên nguyên tố).
+    Nếu không phân tích được, trả về (0, 1, int(n)) nghĩa là 0 + 1*sqrt(n).
+    Chỉ xử lý trường hợp n là số nguyên dương hoặc số thực dương.
+    """
+    if n < 0:
+        return (0, 1, n)
+    # Nếu n là số chính phương
+    root = math.isqrt(int(n))
+    if abs(root * root - n) < 1e-12:
+        return (root, 0, 1)
+    # Nếu n là số thực, thử tách phần nguyên và phần thập phân
+    if isinstance(n, float) and not n.is_integer():
+        a = math.floor(n)
+        remain = n - a
+        if remain > 1e-12:
+            # Không cố tách phần thập phân thành căn, chỉ trả về dạng b*sqrt(c)
+            n = remain
+            a = int(a)
+        else:
+            n = int(n)
+            a = 0
+    else:
+        a = 0
+        n = int(n)
+    # Phân tích n thành b^2 * c với c là số nguyên tố nếu có thể
+    b = 1
+    c = int(n)
+    i = 2
+    while i * i <= c:
+        count = 0
+        while c % (i * i) == 0:
+            c //= i * i
+            b *= i
+            count += 1
+        i += 1
+    return (a, b, c)
+
+def check_irrational(n: float) -> bool:
+    try:
+        from fractions import Fraction
+        f = Fraction(n).limit_denominator()
+        return abs(float(f) - n) > 1e-50
+    except Exception:
+        return True
+
+
+# 5. Unified returning()
+def returning(n: int | float | Decimal, choice: str = "S", /, app: bool = False):
     if choice.upper() == "S":
         # Chỉ trả về 0 nếu n rất nhỏ (<= 1e-100)
         if abs(n) <= 1e-100:
@@ -267,30 +308,19 @@ def returning(n: int | float | Decimal, choice: str = "S"):
             #print(True)
             k = round(n * n)
             if abs(k - n * n) < 1e-9 and k < 1e6:
-                a, b = sqrt_simplify(k)
+                a, b, c = sqrt_simplify(k)
                 if a == 0 or b == 0: return 0
-                elif a == 1: return sqrt(b)
-                elif b == 1: return a
-                elif a != 1 and b != 1: return a * sqrt(b)
-                else: return n
-            else: return n
-        f = Fraction(*n.as_integer_ratio()).limit_denominator()
-        if f.denominator == 1:
-            return f.numerator
-        return f
+                if app:
+                    if a == 1: return f"sqrt({c})"
+                    if b == 1: return a
+
+                    if a == b == c == 0 or a == b == 1:
+                        return comp_returning(n, "D")
+                else: 
+                    n_s = f"{n:.9e}"
+                    actual1 = float(n_s)
+                    return actual1
         # End < if choice is 'S' >
-    # Chỉ trả về 0 nếu n rất nhỏ (<= 1e-100)
-    if abs(n) <= 1e-100:
-        return 0
-    if n > 1e100:
-        return float('inf')
-    num = f"{n:.12f}".rstrip("0").rstrip(".")
-
-    actual = float(num)
-    if actual == int(actual):
-        return int(actual)
-    return actual
-
 
 # 6. Expression engine
 def preprocess_expression(expr: str) -> str:
@@ -336,7 +366,7 @@ def preprocess_expression(expr: str) -> str:
     return expr
 
 def evaluate_expression(expr: str, simplify_symbolic=True):
-    global variable, A, B, C, D, E, F, x, y, z, M, names
+    global variable, A, B, C, D, E, F, x, y, z, M, names, Ans
     expr_clean = preprocess_expression(expr)
 
     from sympy import sympify, radsimp, simplify as sym_simplify
@@ -366,7 +396,7 @@ def evaluate_expression(expr: str, simplify_symbolic=True):
         "asin": asin, "acos": acos, "atan": atan,
         "sqrt": sqrt,
         "ln": ln,
-        "sigma": sigma,
+        "sigma": sigma_s,
         "cm": cm,
         "d_dy": d_dy,
         "integral": integral,
@@ -379,13 +409,14 @@ def evaluate_expression(expr: str, simplify_symbolic=True):
         "factorial": factorial,
         "perm": perm
     }
-    avail_vars = {k: v for k, v in zip(names, variable)}
+    avail_vars = {k: v for k, v in zip(names, variable)} | {"Ans": Ans}
     safe |= avail_vars
     res = eval(expr_clean, {"__builtins__": {}}, safe)
-    return returning(res)
+    res = returning(res); Ans = res
+    return res
 
 def solve_eq(expr: str, vars_val: dict[str, int], var='x'):
-    global A, B, C, D, E, F, x, y, z, M, actual_val_const
+    global A, B, C, D, E, F, x, y, z, M, actual_val_const, Ans
     from sympy import sympify, Eq, Symbol, solve
     try:
         expr = expr.replace("^", "**")
@@ -413,6 +444,7 @@ def solve_eq(expr: str, vars_val: dict[str, int], var='x'):
             "y": y,
             "z": z,
             "M": M,
+            "Ans": Ans
         }
 
         # Thay thế các biến đã lưu vào biểu thức
@@ -558,7 +590,7 @@ def integral(low: float, high: float, expression: str, var: str = "x"):
     return returning(integrate(expr, (x, low, high)))
 
 # 9. Tổng / Tích liên tục
-def sigma(first: int, end: int, expression: str, var: str = "x"):
+def sigma_s(first: int, end: int, expression: str, var: str = "x"):
     from sympy import symbols, summation, sympify
     i = symbols(var)
     expr = sympify(preprocess_expression(expression))
@@ -592,7 +624,7 @@ def calc(expr: str, **vars_values):
             "atan": atan,
             "sqrt": sqrt,
             "ln": ln,
-            "sigma": sigma,
+            "sigma": sigma_s,
             "cm": cm,
             "d_dy": d_dy,
             "integral": integral,
@@ -641,7 +673,7 @@ def calc(expr: str, **vars_values):
             "atan": atan,
             "sqrt": sqrt,
             "ln": ln,
-            "sigma": sigma,
+            "sigma": sigma_s,
             "cm": cm,
             "d_dy": d_dy,
             "integral": integral,
