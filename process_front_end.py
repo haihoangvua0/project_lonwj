@@ -91,39 +91,77 @@ def stor(**var_input: int):
             return group[name]
     raise KeyError(MATH_ERROR)'''
 actual_val_const = {
-        "mp": 1.672621898e-27,
-        "mn": 1.674927471e-27,
-        "me": 9.10938356e-31,
-        "m_mu": 1.883531594e-28,
-        "a0": 5.291772107e-11,
-        "h": 6.62607004e-34,        # Hằng số Plank
-        "muN": 5.050783699e-27,
-        "muB": 9.274009994e-24,
-        "h_": 1.0545718e-34,
-        "alpha": 7.297352566e-3,
-        "re": 2.817940323e-15,
-        "lambda_c": 2.426310237e-12,
-        "gamma_p": 267522190,
-        "lambda_cp": 1.321409854e-15,
-        "lambda_cn": 1.319590905e-15,
-        "R_inf": 10973731.57,
-        "u": 1.66053904e-27,
-        "mu_p": 1.410606787e-26,
-        "mu_e": -9.28476462e-24,
-        "mu_n": -9.662365e-27,
-        "mu_mu": -4.49044826e-26,
-        "f": 96485.33289,
-        "e_": 1.602176621e-19,
-        "NA": 6.022140857e23,
-        "k": 1.38064852e-23,
-        "Vm": 0.022710947,
-        "R": 8.3144598,
-        "C_0": 299792458,           # Tốc độ ánh sáng
-        "C_1": 3.74177179e-16,
-        "C_2": 0.0143877736,
-        "sigma": 5.670367e-8
-}
+    # =========================
+    # 1. Universal constants
+    # =========================
+    "h": 6.62607004e-34,          # Planck constant
+    "h_": 1.0545718e-34,          # Reduced Planck constant
+    "C_0": 299792458,             # Speed of light in vacuum
+    "eps_0": 8.854187817e-12,     # Electric permittivity of vacuum
+    "mu_0": 1.256637061e-6,       # Magnetic constant
+    "Z_0": 376.7303135,           # Vacuum impedance
+    "G": 6.67408e-11,             # Newton gravitational constant
+    "lp": 1.6162293e-35,          # Planck length
+    "tp": 5.39116e-44,            # Planck time
 
+    # =========================
+    # 2. Electromagnetic constants
+    # =========================
+    "muN": 5.050783699e-27,       # Nuclear magneton
+    "muB": 9.274009994e-24,       # Bohr magneton
+    "e_": 1.602176621e-19,        # Elementary charge
+    "phi_0": 2.067833831e-15,     # Magnetic flux quantum
+    "G_0": 7.748091731e-5,        # Conductance quantum
+    "K_j": 4.835978525e14,        # Josephson constant
+    "R_k": 25812.80746,           # von Klitzing constant
+
+    # =========================
+    # 3. Atomic & Nuclear physics
+    # =========================
+    "mp": 1.672621898e-27,        # Proton mass
+    "mn": 1.674927471e-27,        # Neutron mass
+    "me": 9.10938356e-31,         # Electron mass
+    "m_mu": 1.883531594e-28,      # Muon mass
+    "m_tau": 3.16747e-27,         # Tau mass
+    "a0": 5.291772107e-11,        # Bohr radius
+    "alpha": 7.297352566e-3,      # Fine-structure constant
+    "re": 2.817940323e-15,        # Classical electron radius
+    "lambda_c": 2.426310237e-12,  # Compton wavelength electron
+    "gamma_p": 267522190,         # Proton gyromagnetic ratio
+    "lambda_cp": 1.321409854e-15, # Proton Compton wavelength
+    "lambda_cn": 1.319590905e-15, # Neutron Compton wavelength
+    "R_inf": 10973731.57,         # Rydberg constant
+    "mu_p": 1.410606787e-26,      # Proton magnetic moment
+    "mu_e": -9.28476462e-24,      # Electron magnetic moment
+    "mu_n": -9.662365e-27,        # Neutron magnetic moment
+    "mu_mu": -4.49044826e-26,     # Muon magnetic moment
+
+    # =========================
+    # 4. Physics–Chemistry constants
+    # =========================
+    "u": 1.66053904e-27,          # Atomic mass unit
+    "f": 96485.33289,             # Faraday constant
+    "NA": 6.022140857e23,         # Avogadro constant
+    "k": 1.38064852e-23,          # Boltzmann constant
+    "Vm": 0.022710947,            # Molar gas volume (STP)
+    "R": 8.3144598,               # Gas constant
+    "C_1": 3.74177179e-16,        # First radiation constant
+    "C_2": 0.0143877736,          # Second radiation constant
+    "sigma": 5.670367e-8,         # Stefan-Boltzmann constant
+
+    # =========================
+    # 5. Adopted values
+    # =========================
+    "g": 9.80665,                 # Standard gravity
+    "atm": 101325,                # Standard atmosphere
+    "R_k90": 25812.807,           # Conventional Von Klitzing (1990)
+    "K_j90": 4.835979e14,         # Conventional Josephson (1990)
+
+    # =========================
+    # 6. Other
+    # =========================
+    "t": 273.15                  # Celsius -> Kelvin offset
+}
 # 2. Angle mode (global)
 ANGLE_MODE = "DEG"
 
@@ -133,7 +171,6 @@ def set_angle_mode(mode: str):
     if mode not in ("DEG", "RAD", "GRA"):
         raise ValueError(MATH_ERROR)
     ANGLE_MODE = mode
-    import os
 
     # Lấy thư mục chứa file hiện tại
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -207,86 +244,139 @@ def atanh(x: float):
     v = math.atanh(x)
     return v
 # 4. Core helpers
-def comp_returning(n: float | int | Decimal, choice: str = "S"):
+import math
+from fractions import Fraction
+from decimal import Decimal
+
+# ---------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------
+
+def is_scientific_notation(n: float) -> float:
+    """Handle numbers like 1e-7 to avoid float weirdness."""
+    s = f"{n}"
+    if "e" not in s:
+        return n
+    s = f"{n:.12e}"
+    base, exp = s.split("e")
+    base_f = float(base)
+    if abs(base_f - round(base_f)) < 1e-15:
+        return float(f"{int(round(base_f))}e{exp}")
+    else:
+        base = base.rstrip("0")
+        return float(f"{base}e{exp}")
+
+
+def split_sqrt_basic(n: float, eps=1e-12, max_b=200):
+    """Tìm a, b sao cho n ≈ a*sqrt(b) với b square-free."""
+    if n < 0:
+        return None
+
+    for b in range(2, max_b + 1):
+        r = int(math.isqrt(b))
+        if r*r == b:
+            continue  # bỏ b bình phương
+
+        a = n / math.sqrt(b)
+        if abs(a*math.sqrt(b) - n) < eps:
+            frac = Fraction(a).limit_denominator(50)
+            return float(frac), b
+
+    return None
+
+
+# ---------------------------------------------------------
+# 5. Unified returning()
+# ---------------------------------------------------------
+
+def returning(n: int | float | Decimal | str,
+              choice: str = "S",
+              /,
+              app: bool = False):
+    """
+    Trả về số đã rút gọn.
+    - choice="S": ưu tiên dạng Fraction.
+    - app=True : trả chuỗi sqrt(...) thay vì float.
+    """
+
+    # ----------------------
+    # 0) Decimal -> float
+    # ----------------------
     if isinstance(n, Decimal):
         n = float(n)
-    if isinstance(n, int):
-        return n
-    if math.isnan(n) or math.isinf(n):
-        raise ValueError(MATH_ERROR)
-    # Xử lí số khoa học =))))
-    s = f"{n}"
-    if "e" in s:
-        s = f"{n:.9e}"
-        idx = s.index("e")
-        base_ = s[:idx]
-        exp_ = s[idx:]
-        base_1 = float(base_)
-        if abs(base_1 - round(base_1)) < 1e-20:
-            base_ = str(int(base_1))
-            new_n = float(base_ + exp_)
-            return new_n
-        else:
-            base_ = base_.rstrip("0")
-            new_n = float(base_ + exp_)
-            return new_n
-    if abs(n - round(n)) < 1e-12:
-        return int(round(n))
-    # Chỉ trả về 0 nếu n rất nhỏ (<= 1e-100)
-    if abs(n) <= 1e-100:
-        return 0
-    if n > 1e100:
-        return float('inf')
-    if choice == "S":
-        from fractions import Fraction
-        f = Fraction(*n.as_integer_ratio()).limit_denominator()
-        if f.denominator == 1:
-            return f.numerator
-        return f
-    num = f"{n:.12f}".rstrip("0").rstrip(".")
 
-    actual = float(num)
-    if actual == int(actual):
-        return int(actual)
-    return actual
-def sqrt_simplify(n: float | int) -> tuple[float | int, float | int, int]:
-    """
-    Phân tích n thành dạng a + b*sqrt(c) với a, b là số thực hoặc nguyên, c là số nguyên dương (ưu tiên nguyên tố).
-    Nếu không phân tích được, trả về (0, 1, int(n)) nghĩa là 0 + 1*sqrt(n).
-    Chỉ xử lý trường hợp n là số nguyên dương hoặc số thực dương.
-    """
-    if n < 0:
-        return (0, 1, n)
-    # Nếu n là số chính phương
-    root = math.isqrt(int(n))
-    if abs(root * root - n) < 1e-12:
-        return (root, 0, 1)
-    # Nếu n là số thực, thử tách phần nguyên và phần thập phân
-    if isinstance(n, float) and not n.is_integer():
-        a = math.floor(n)
-        remain = n - a
-        if remain > 1e-12:
-            # Không cố tách phần thập phân thành căn, chỉ trả về dạng b*sqrt(c)
-            n = remain
-            a = int(a)
+    # ----------------------
+    # 1) NaN / Inf
+    # ----------------------
+    if isinstance(n, float) and (math.isnan(n) or math.isinf(n)):
+        return float("inf")
+    if isinstance(n, str):
+        #app = True # at all cost
+        if app:
+            pass
         else:
-            n = int(n)
-            a = 0
-    else:
-        a = 0
-        n = int(n)
-    # Phân tích n thành b^2 * c với c là số nguyên tố nếu có thể
-    b = 1
-    c = int(n)
-    i = 2
-    while i * i <= c:
-        count = 0
-        while c % (i * i) == 0:
-            c //= i * i
-            b *= i
-            count += 1
-        i += 1
-    return (a, b, c)
+            res = evaluate_expression(n, app=False)
+            
+    elif isinstance(n, (int, float)):
+        # ----------------------
+        # 2) Scientific
+        # ----------------------
+        new_n = is_scientific_notation(n)
+        return new_n
+    
+        # ----------------------
+        # 3) Số cực nhỏ
+        # ----------------------
+        if abs(n) < 1e-100:
+            return 0
+    
+        # ----------------------
+        # 4) Số nguyên
+        # ----------------------
+        if abs(n - round(n)) < 1e-12:
+            return int(round(n))
+    # ----------------------
+    # 6) Thử phân tích dạng a*sqrt(b)
+    # ----------------------
+    if check_irrational(n):
+        sq = split_sqrt_basic(n)
+        if sq is not None:
+            a, b = sq
+    
+            # nếu app=True -> trả string
+            if app:
+                a_frac = Fraction(a).limit_denominator()
+                if a_frac == 1:
+                    return f"sqrt({b})"
+                return f"{a_frac}*sqrt({b})"
+    
+            elif app == False: return float(a) * math.sqrt(b)
+        else: 
+            new_n = f"{n:.12f}".rstrip("0").rstrip(".")
+            actual1 = float(s)
+            if abs(actual1 - round(actual1)) < 1e-12:
+                return int(round(actual1))
+            return actual1
+    # ----------------------
+    # 5) Dạng hữu tỉ nếu choice="S"
+    # ----------------------
+    if choice.upper() == "S":
+        frac = Fraction(*float(n).as_integer_ratio()).limit_denominator()
+        if abs(float(frac) - n) < 1e-15:
+            # nếu nguyên
+            if frac.denominator == 1:
+                return frac.numerator
+            return frac
+
+    # ----------------------
+    # 7) Fallback: trả số float đẹp → như comp_returning
+    # ----------------------
+    s = f"{n:.12f}".rstrip("0").rstrip(".")
+    actual = float(s)
+    if abs(actual - round(actual)) < 1e-12:
+        return int(round(actual))
+
+    return actual
 
 def check_irrational(n: float) -> bool:
     try:
@@ -296,32 +386,6 @@ def check_irrational(n: float) -> bool:
     except Exception:
         return True
 
-
-# 5. Unified returning()
-def returning(n: int | float | Decimal, choice: str = "S", /, app: bool = False):
-    if choice.upper() == "S":
-        # Chỉ trả về 0 nếu n rất nhỏ (<= 1e-100)
-        if abs(n) <= 1e-100:
-            return 0
-        from fractions import Fraction
-        if check_irrational(n):
-            #print(True)
-            k = round(n * n)
-            if abs(k - n * n) < 1e-9 and k < 1e6:
-                a, b, c = sqrt_simplify(k)
-                if a == 0 or b == 0: return 0
-                if app:
-                    if a == 1: return f"sqrt({c})"
-                    if b == 1: return a
-
-                    if a == b == c == 0 or a == b == 1:
-                        return comp_returning(n, "D")
-                else: 
-                    n_s = f"{n:.9e}"
-                    actual1 = float(n_s)
-                    return actual1
-        # End < if choice is 'S' >
-
 # 6. Expression engine
 def preprocess_expression(expr: str) -> str:
     import re
@@ -330,6 +394,8 @@ def preprocess_expression(expr: str) -> str:
 
     funcs = ["sqrt", "sin", "cos", "tan", "asin", "acos", "atan",
              "log", "ln", "exp", "sigma", "cm", "integral", "nth_root"]
+    const = list(actual_val_const)
+    funcs += const
 
     # -------------------------------
     # 1) Protect scientific numbers
@@ -365,7 +431,7 @@ def preprocess_expression(expr: str) -> str:
 
     return expr
 
-def evaluate_expression(expr: str, simplify_symbolic=True):
+def evaluate_expression(expr: str, simplify_symbolic=True, /, app: bool = False):
     global variable, A, B, C, D, E, F, x, y, z, M, names, Ans
     expr_clean = preprocess_expression(expr)
 
@@ -385,7 +451,10 @@ def evaluate_expression(expr: str, simplify_symbolic=True):
                 return returning(float(s))
 
             # Nếu là biểu thức, trả về chuỗi (hoặc tùy bạn)
-            # return str(s)
+            else:
+                if app:
+                    return returning(str(s), app)
+                else: pass
 
         except Exception:
             pass
@@ -402,14 +471,14 @@ def evaluate_expression(expr: str, simplify_symbolic=True):
         "integral": integral,
         "log": log,
         "nth_root": nth_root,
-        "returning": returning,
+        #"returning": returning,
         "pi": pi,
         "e": e,
         "comb": comb,
         "factorial": factorial,
         "perm": perm
     }
-    avail_vars = {k: v for k, v in zip(names, variable)} | {"Ans": Ans}
+    avail_vars = {k: v for k, v in zip(names, variable)} | {"Ans": Ans} | actual_val_const
     safe |= avail_vars
     res = eval(expr_clean, {"__builtins__": {}}, safe)
     res = returning(res); Ans = res
@@ -752,7 +821,7 @@ def eq_fu_settings(choice: int):
 
     # Nối đường dẫn tuyệt đối tới file muốn mở
     file_path = os.path.join(BASE_DIR, "equation_funcs.txt")
-    
+
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(f"{choice}")
 
@@ -763,7 +832,7 @@ def table_settings(choice: int):
 
     # Nối đường dẫn tuyệt đối tới file muốn mở
     file_path = os.path.join(BASE_DIR, "table.txt")
-    
+
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(f"{choice}")
 def stor_settings():
@@ -778,17 +847,17 @@ def stor_settings():
     with open(file_path, "r", encoding="utf-8") as f:
         ANGLE_MODE = f.readline()
         dict_of_setting["Angle unit"] = ANGLE_MODE
-        
+
     file_path = os.path.join(BASE_DIR, "statistics.txt")
 
     with open(file_path, "r", encoding="utf-8") as f:
         dict_of_setting["Statistics"] = int(f.readline())
-        
+
     file_path = os.path.join(BASE_DIR, "equation_funcs.txt")
 
     with open(file_path, "r", encoding="utf-8") as f:
         dict_of_setting["Equation/ Function"] = int(f.readline())
-    
+
     file_path = os.path.join(BASE_DIR, "table.txt")
 
     with open(file_path, "r", encoding="utf-8") as f:
