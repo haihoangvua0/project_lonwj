@@ -40,56 +40,7 @@ def stor(**var_input: int):
             f.write(f"{i}\n")
 
 
-# 1. Physical Constants
-'''constants = {
-    "General": {
-        "c": 2.99792458e8,
-        "g": 9.80665,
-        "h": 6.62607015e-34,
-        "G": 6.67430e-11,
-        "Na": 6.02214076e23,
-        "k": 1.380649e-23,
-        "R": 8.314462618,
-        "eV": 1.602176634e-19,
-    },
-    "Electromagnetic": {
-        "e": 1.602176634e-19,
-        "mu_0": 1.25663706212e-6,
-        "eps_0": 8.8541878128e-12,
-        "KJ": 4.835978484e14,
-        "RK": 25812.80745,
-    },
-    "Atomic_Nuclear": {
-        "m_e": 9.1093837015e-31,
-        "m_p": 1.67262192369e-27,
-        "m_n": 1.67492749804e-27,
-        "e_over_me": 1.75882001076e11,
-        "u": 1.66053906660e-27,
-    },
-    "Phys_Chem": {
-        "atm": 1.01325e5,
-        "Vm": 22.41396954,
-        "F": 96485.33212,
-    },
-    "Adopted": {
-        "cal": 4.184,
-        "eV": 1.602176634e-19,
-        "mmHg": 133.322368,
-        "inch": 0.0254,
-        "lb": 0.45359237,
-    },
-    "Others": {
-        "phi": (1 + 5 ** 0.5) / 2,
-        "pi": math.pi,
-        "deg_to_rad": math.pi / 180,
-        "rad_to_deg": 180 / math.pi,
-    }
-}'''
-'''def get_constant(name: str):
-    for group in constants.values():
-        if name in group:
-            return group[name]
-    raise KeyError(MATH_ERROR)'''
+# 1. Constants
 actual_val_const = {
     # =========================
     # 1. Universal constants
@@ -279,7 +230,7 @@ def split_sqrt_basic(n: float, eps=1e-12, max_b=200):
 
         a = n / math.sqrt(b)
         if abs(a*math.sqrt(b) - n) < eps:
-            frac = Fraction(a).limit_denominator(50)
+            frac = Fraction(a).limit_denominator()
             return float(frac), b
 
     return None
@@ -291,12 +242,11 @@ def split_sqrt_basic(n: float, eps=1e-12, max_b=200):
 
 def returning(n: int | float | Decimal | str,
               choice: str = "S",
-              /,
-              app: bool = False):
+              /):
+              #app: bool = False):
     """
     Trả về số đã rút gọn.
     - choice="S": ưu tiên dạng Fraction.
-    - app=True : trả chuỗi sqrt(...) thay vì float.
     """
 
     # ----------------------
@@ -310,26 +260,28 @@ def returning(n: int | float | Decimal | str,
     # ----------------------
     if isinstance(n, float) and (math.isnan(n) or math.isinf(n)):
         return float("inf")
-    if isinstance(n, str):
-        #app = True # at all cost
-        if app:
-            pass
-        else:
-            res = evaluate_expression(n, app=False)
+    #if isinstance(n, str):
+    #    #app = True # at all cost
+    #    if app:
+    #        return n
+    #    else:
+    #         return evaluate_expression(n, app=False)
             
     elif isinstance(n, (int, float)):
-        # ----------------------
-        # 2) Scientific
-        # ----------------------
-        new_n = is_scientific_notation(n)
-        return new_n
-    
         # ----------------------
         # 3) Số cực nhỏ
         # ----------------------
         if abs(n) < 1e-100:
             return 0
-    
+        # ----------------------
+        # 2) Scientific
+        # ----------------------
+        
+        new_n = is_scientific_notation(n)
+        if new_n == n:
+            n = new_n
+        else: return new_n
+
         # ----------------------
         # 4) Số nguyên
         # ----------------------
@@ -338,25 +290,12 @@ def returning(n: int | float | Decimal | str,
     # ----------------------
     # 6) Thử phân tích dạng a*sqrt(b)
     # ----------------------
-    if check_irrational(n):
-        sq = split_sqrt_basic(n)
-        if sq is not None:
-            a, b = sq
-    
-            # nếu app=True -> trả string
-            if app:
-                a_frac = Fraction(a).limit_denominator()
-                if a_frac == 1:
-                    return f"sqrt({b})"
-                return f"{a_frac}*sqrt({b})"
-    
-            elif app == False: return float(a) * math.sqrt(b)
-        else: 
-            new_n = f"{n:.12f}".rstrip("0").rstrip(".")
-            actual1 = float(s)
-            if abs(actual1 - round(actual1)) < 1e-12:
-                return int(round(actual1))
-            return actual1
+    if check_irrational(n): 
+        new_n = f"{n:.12f}".rstrip("0").rstrip(".")
+        actual1 = float(new_n)
+        if abs(actual1 - round(actual1)) < 1e-20:
+            return int(round(actual1))
+        return actual1
     # ----------------------
     # 5) Dạng hữu tỉ nếu choice="S"
     # ----------------------
@@ -369,7 +308,7 @@ def returning(n: int | float | Decimal | str,
             return frac
 
     # ----------------------
-    # 7) Fallback: trả số float đẹp → như comp_returning
+    # 7) Fallback: trả số float đẹp -> như comp_returning
     # ----------------------
     s = f"{n:.12f}".rstrip("0").rstrip(".")
     actual = float(s)
@@ -453,7 +392,7 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /, app: bool = False)
             # Nếu là biểu thức, trả về chuỗi (hoặc tùy bạn)
             else:
                 if app:
-                    return returning(str(s), app)
+                    return str(s)
                 else: pass
 
         except Exception:
@@ -468,7 +407,7 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /, app: bool = False)
         "sigma": sigma_s,
         "cm": cm,
         "d_dy": d_dy,
-        "integral": integral,
+        "inte": inte,
         "log": log,
         "nth_root": nth_root,
         #"returning": returning,
@@ -500,7 +439,7 @@ def solve_eq(expr: str, vars_val: dict[str, int], var='x'):
         from sympy import sympify
         symbols_left = list(sympify(left).free_symbols)
         symbols_right = list(sympify(right).free_symbols)
-        all_symbols = set(map(str, symbols_left + symbols_right))
+        #all_symbols = set(map(str, symbols_left + symbols_right))
 
         # Lấy giá trị biến đã lưu (A, B, C, ...)
         avail_var = {
@@ -596,7 +535,7 @@ def fact(n: int, primes=None):
     return factors
 
 def sqrt(n: int | float):
-    if n < 0: return MATH_ERROR
+    if n < 0: raise ValueError(MATH_ERROR)
     return (math.sqrt(n))
 
 def nth_root(base: int | float, ex: int):
@@ -652,7 +591,7 @@ def d_dy(expression: str, val: int | None = None):
         except Exception:
             raise ValueError(MATH_ERROR + ". The expression needs fix...")
 
-def integral(low: float, high: float, expression: str, var: str = "x"):
+def inte(low: float, high: float, expression: str, var: str = "x"):
     from sympy import symbols, integrate, sympify
     x = symbols(var)
     expr = sympify(preprocess_expression(expression))
@@ -696,7 +635,7 @@ def calc(expr: str, **vars_values):
             "sigma": sigma_s,
             "cm": cm,
             "d_dy": d_dy,
-            "integral": integral,
+            "inte": inte,
             "log": log,
             "nth_root": nth_root,
             "returning": returning,
@@ -745,7 +684,7 @@ def calc(expr: str, **vars_values):
             "sigma": sigma_s,
             "cm": cm,
             "d_dy": d_dy,
-            "integral": integral,
+            "inte": inte,
             "log": log,
             "nth_root": nth_root,
             "returning": returning,
@@ -869,7 +808,7 @@ sleep(1.5)
 print("Debugging...")
 res = []
 res.append(str(solve_eq("x**2+B", {"B": -1}))+"\n")
-res.append(str(evaluate_expression("2x+1-3"))+"\n")
+stor(x=sqrt(2)); res.append(str(evaluate_expression("2x+1-3", app=True))+"\n")
 res.append(str(calc("2A - 3", A=6))+"\n")
 res.append(str(returning(sqrt(2)))+"\n")
 res.append(str(d_dy("x^2 + 2x + 1", 9)))
