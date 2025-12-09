@@ -17,7 +17,9 @@ variable = [0 for _ in range(10)]
 A, B, C, D, E, F, x, y, z, M = variable
 names = ["A", "B", "C", "D", "E", "F", "x", "y", "z", "M"]
 Ans = 0
-PreAns = 0
+#PreAns = 0
+
+app = False
 
 def stor(**var_input: int):
     global variable, A, B, C, D, E, F, x, y, z, M, names
@@ -370,15 +372,15 @@ def preprocess_expression(expr: str) -> str:
 
     return expr
 
-def evaluate_expression(expr: str, simplify_symbolic=True, /, app: bool = False):
-    global variable, A, B, C, D, E, F, x, y, z, M, names, Ans
+def evaluate_expression(expr: str, simplify_symbolic=True, /):
+    global variable, A, B, C, D, E, F, x, y, z, M, names, Ans, app
     expr_clean = preprocess_expression(expr)
     safe = {
         "sin": sin, "cos": cos, "tan": tan,
         "asin": asin, "acos": acos, "atan": atan,
         "sqrt": sqrt,
         "ln": ln,
-        "sigma": sigma_s,
+        "sums": sums,
         "cm": cm,
         "d_dy": d_dy,
         "inte": inte,
@@ -391,10 +393,17 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /, app: bool = False)
         "factorial": factorial,
         "perm": perm
     }
-    
+    #try:
+    #    rcl()
+    #except Exception as es:
+    #    print(es)
+    #    exit(1)
+    avail_vars = {k: v for k, v in zip(names, variable)}
+    new_ = avail_vars | {"Ans": Ans} | actual_val_const
+
     from sympy import sympify, radsimp, simplify as sym_simplify
     HAS_SYMPY = True
-    
+
     if HAS_SYMPY:
         try:
             s = sympify(expr_clean, evaluate=True)
@@ -409,22 +418,23 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /, app: bool = False)
 
             # Nếu là biểu thức, trả về chuỗi (hoặc tùy bạn)
             else:
+                a = list(map(str, s.free_symbols))
+                if any((not i in avail_vars.keys()) for i in a):
+                    raise ValueError(MATH_ERROR)
                 if app and "sqrt" in str(s):
                     return str(s)
                 else: pass
 
-        except Exception:
-            pass
+        except Exception as es:
+            print(es)
 
     # Nếu SymPy fail -> eval thủ công
-    
-    avail_vars = {k: v for k, v in zip(names, variable)} | {"Ans": Ans} | actual_val_const
-    safe |= avail_vars
+    safe |= new_
     res = eval(expr_clean, {"__builtins__": {}}, safe)
     res = returning(res); Ans = res
     return res
 
-def solve_eq(expr: str, vars_val: dict[str, int], var='x'):
+def solve_eq(expr: str, vars_val, var='x'):
     global A, B, C, D, E, F, x, y, z, M, actual_val_const, Ans
     from sympy import sympify, Eq, Symbol, solve
     try:
@@ -588,7 +598,11 @@ def d_dy(expression: str, val: int | None = None):
     else:
         # Trả về giá trị đạo hàm tại x = val
         try:
-            return derivative.subs(x, val)
+            res = derivative.subs(x, val)
+            if res.is_real:
+                return returning(res)
+            else: # if isinstance(res, str):
+                return evaluate_expression(str(res)) 
         except Exception:
             raise ValueError(MATH_ERROR + ". The expression needs fix...")
 
@@ -596,20 +610,32 @@ def inte(low: float, high: float, expression: str, var: str = "x"):
     from sympy import symbols, integrate, sympify
     x = symbols(var)
     expr = sympify(preprocess_expression(expression))
-    return returning(integrate(expr, (x, low, high)))
+    res = (integrate(expr, (x, low, high)))
+    if res.is_real:
+        return returning(res)
+    else: # if isinstance(res, str):
+        return evaluate_expression(str(res))
 
 # 9. Tổng / Tích liên tục
-def sigma_s(first: int, end: int, expression: str, var: str = "x"):
+def sums(first: int, end: int, expression: str, var: str = "x"):
     from sympy import symbols, summation, sympify
     i = symbols(var)
     expr = sympify(preprocess_expression(expression))
-    return returning(summation(expr, (i, first, end)))
+    res = (summation(expr, (i, first, end)))
+    if res.is_real:
+        return returning(res)
+    else: # if isinstance(res, str):
+        return evaluate_expression(str(res))
 
 def cm(first: int, end: int, expression: str, var: str = "x"):
     from sympy import symbols, product, sympify
     i = symbols(var)
     expr = sympify(preprocess_expression(expression))
-    return returning(product(expr, (i, first, end)))
+    res = (product(expr, (i, first, end)))
+    if res.is_real:
+        return returning(res)
+    else: # if isinstance(res, str):
+        return evaluate_expression(str(res))
 
 #calc...
 def calc(expr: str, **vars_values):
@@ -624,34 +650,7 @@ def calc(expr: str, **vars_values):
     if not symbols:
         # Biểu thức không có biến
         # Hỗ trợ các hàm toán học và biến đặc biệt như sqrt, sin, cos, pi, e
-        safe_dict = {
-            "sin": sin,
-            "cos": cos,
-            "tan": tan,
-            "asin": asin,
-            "acos": acos,
-            "atan": atan,
-            "sqrt": sqrt,
-            "ln": ln,
-            "sigma": sigma_s,
-            "cm": cm,
-            "d_dy": d_dy,
-            "inte": inte,
-            "log": log,
-            "nth_root": nth_root,
-            "returning": returning,
-            "pi": pi,
-            "e": e,
-            "comb": comb,
-            "factorial": factorial,
-            "perm": perm
-        }
-        #safe_dict.update(vars_values)
-        #safe_dict.update({"pi": math.pi, "e": math.e})
-
-        all_safe = safe_dict | actual_val_const
-        val = eval(expr, {"__builtins__": None}, all_safe)
-        return returning(val)
+        return evaluate_expression(expr)
     else:
         # Biểu thức có biến -> cần giá trị
         # Loại biến có sẵn.
@@ -682,7 +681,7 @@ def calc(expr: str, **vars_values):
             "atan": atan,
             "sqrt": sqrt,
             "ln": ln,
-            "sigma": sigma_s,
+            "sums": sums,
             "cm": cm,
             "d_dy": d_dy,
             "inte": inte,
@@ -691,6 +690,8 @@ def calc(expr: str, **vars_values):
             "returning": returning,
             "pi": pi,
             "e": e,
+            "perm": perm,
+            "comb": comb
         }
         avail_var |= vars_values
         stor(**avail_var)
@@ -744,7 +745,7 @@ dict_of_setting = {
     #"Language" # 1. English/ 2. Tiếng Việt
 }
 lst_of_stop = ["stop", "off", "exit", "quit"]
-def stat_setting(choice: int):
+def stat_setting(choice: int = dict_of_setting["Statistics"]):
 
     # Lấy thư mục chứa file hiện tại
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -754,7 +755,7 @@ def stat_setting(choice: int):
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(f"{choice}")
-def eq_fu_settings(choice: int):
+def eq_fu_settings(choice: int = dict_of_setting["Equation/ Function"]):
 
     # Lấy thư mục chứa file hiện tại
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -765,7 +766,7 @@ def eq_fu_settings(choice: int):
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(f"{choice}")
 
-def table_settings(choice: int):
+def table_settings(choice: int = dict_of_setting["Table"]):
 
     # Lấy thư mục chứa file hiện tại
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -776,7 +777,7 @@ def table_settings(choice: int):
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(f"{choice}")
 def stor_settings():
-    global ANGLE_MODE, dict_of_settings
+    global ANGLE_MODE, dict_of_setting
 
     # Lấy thư mục chứa file hiện tại
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -803,16 +804,20 @@ def stor_settings():
     with open(file_path, "r", encoding="utf-8") as f:
         dict_of_setting["Table"] = int(f.readline())
 #debug line
-from time import sleep
+#from time import sleep
 print("Set data")
-sleep(1.5)
+#sleep(1.5)
 print("Debugging...")
 res = []
 res.append(str(solve_eq("x**2+B", {"B": -1}))+"\n")
-stor(x=sqrt(2)); res.append(str(evaluate_expression("2x+1-3", app=True))+"\n")
+stor(x=sqrt(2)); 
+res.append(str(evaluate_expression("2x+1-3"))+"\n")
 res.append(str(calc("2A - 3", A=6))+"\n")
 res.append(str(returning(sqrt(2)))+"\n")
-res.append(str(d_dy("x^2 + 2x + 1", 9)))
+res.append(str(d_dy("x^2 + 2x + 1", 9)) + "\n")
+res.append(str(inte(0, 4, "x^2 + 4")) + "\n")
+res.append(str(sums(0, 3, "comb(x, 3) * 1**x * 2**(3-x)")) + "\n")
+res.append(str(cm(1, 10, "x")) + "\n")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(BASE_DIR, "run.txt")
 with open(file_path, "w", encoding="utf-8") as f:
