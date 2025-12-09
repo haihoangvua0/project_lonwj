@@ -266,7 +266,7 @@ def returning(n: int | float | Decimal | str,
     #        return n
     #    else:
     #         return evaluate_expression(n, app=False)
-            
+
     elif isinstance(n, (int, float)):
         # ----------------------
         # 3) Số cực nhỏ
@@ -276,7 +276,7 @@ def returning(n: int | float | Decimal | str,
         # ----------------------
         # 2) Scientific
         # ----------------------
-        
+
         new_n = is_scientific_notation(n)
         if new_n == n:
             n = new_n
@@ -373,32 +373,6 @@ def preprocess_expression(expr: str) -> str:
 def evaluate_expression(expr: str, simplify_symbolic=True, /, app: bool = False):
     global variable, A, B, C, D, E, F, x, y, z, M, names, Ans
     expr_clean = preprocess_expression(expr)
-
-    from sympy import sympify, radsimp, simplify as sym_simplify
-    HAS_SYMPY = True
-
-    if HAS_SYMPY:
-        try:
-            s = sympify(expr_clean, evaluate=True)
-
-            if simplify_symbolic:
-                s = sym_simplify(radsimp(s))
-
-            # Nếu s là số (Integer/Float/Rational) -> convert về Python
-            if s.is_real:
-                # Float
-                return returning(float(s))
-
-            # Nếu là biểu thức, trả về chuỗi (hoặc tùy bạn)
-            else:
-                if app:
-                    return str(s)
-                else: pass
-
-        except Exception:
-            pass
-
-    # Nếu SymPy fail -> eval thủ công
     safe = {
         "sin": sin, "cos": cos, "tan": tan,
         "asin": asin, "acos": acos, "atan": atan,
@@ -417,6 +391,33 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /, app: bool = False)
         "factorial": factorial,
         "perm": perm
     }
+    
+    from sympy import sympify, radsimp, simplify as sym_simplify
+    HAS_SYMPY = True
+    
+    if HAS_SYMPY:
+        try:
+            s = sympify(expr_clean, evaluate=True)
+
+            if simplify_symbolic:
+                s = sym_simplify(radsimp(s))
+
+            # Nếu s là số (Integer/Float/Rational) -> convert về Python
+            if s.is_real:
+                # Float
+                return returning(float(s))
+
+            # Nếu là biểu thức, trả về chuỗi (hoặc tùy bạn)
+            else:
+                if app and "sqrt" in str(s):
+                    return str(s)
+                else: pass
+
+        except Exception:
+            pass
+
+    # Nếu SymPy fail -> eval thủ công
+    
     avail_vars = {k: v for k, v in zip(names, variable)} | {"Ans": Ans} | actual_val_const
     safe |= avail_vars
     res = eval(expr_clean, {"__builtins__": {}}, safe)
