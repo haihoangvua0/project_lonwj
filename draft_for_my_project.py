@@ -1,45 +1,102 @@
-import math
-def sqrt_simplify(n: float | int) -> tuple[float | int, float | int, int]:
-    """
-    Phân tích n thành dạng a + b*sqrt(c) với a, b là số thực hoặc nguyên, c là số nguyên dương (ưu tiên nguyên tố).
-    Nếu không phân tích được, trả về (0, 1, int(n)) nghĩa là 0 + 1*sqrt(n).
-    Chỉ xử lý trường hợp n là số nguyên dương hoặc số thực dương.
-    """
-    if n < 0:
-        return (0, 1, n)
-    # Nếu n là số chính phương
-    root = math.isqrt(int(n))
-    if abs(root * root - n) < 1e-12:
-        return (root, 0, 1)
-    # Nếu n là số thực, thử tách phần nguyên và phần thập phân
-    if isinstance(n, float) and not n.is_integer():
-        a = math.floor(n)
-        remain = n - a
-        if remain > 1e-12:
-            # Không cố tách phần thập phân thành căn, chỉ trả về dạng b*sqrt(c)
-            n = remain
-            a = int(a)
-        else:
-            n = int(n)
-            a = 0
-    else:
-        a = 0
-        n = int(n)
-    # Phân tích n thành b^2 * c với c là số nguyên tố nếu có thể
-    b = 1
-    c = int(n)
-    i = 2
-    while i * i <= c:
-        count = 0
-        while c % (i * i) == 0:
-            c //= i * i
-            b *= i
-            count += 1
-        i += 1
-    return (a, b, c)
+#from process_front_end import *
+from collections import Counter
 
-print(sqrt_simplify(6.5 + 2*math.sqrt(3))) # -> (6.5, 1, 2, 3)
-print(sqrt_simplify((2.3)*math.sqrt(2))) # -> (0, 0, 2.3, 2)
-print(sqrt_simplify(math.sqrt(97))) # -> (0, 0, 0, 97)
-print(sqrt_simplify(120*math.sqrt(2))) # -> (0, 0, 0, ~169.7056275)
-print(sqrt_simplify())
+#stat_setting(1)
+#choice = dict_of_setting["Statistics"]
+def fast(l: list[int]):
+        fast = []
+        for i in range(len(l)):
+                if i == 0:
+                        fast.append(l[0])
+                        continue
+                fast.append(fast[i-1] + l[i])
+        return fast
+
+def median(l: list[int], freq: list | None = None):
+        # Control the reputation in list of vals
+        #global choice
+        choice = 1
+        if freq:
+                n = len(l)
+                if choice == 0:
+                        print("Running here 1")
+                        #freq = None
+                        l = sorted(l)
+                        n = len(l)
+                        if n % 2 == 0:
+                                k = n // 2
+                                res = (1/2) * (l[k - 1] + l[k])
+                                res = (res)
+                                return res
+                        else:
+                                k = (n - 1) // 2
+                                return (l[k])
+                # Check the length of the list 'frequency'
+                print("Running here 2")
+                import bisect
+                alls = [(k, f) for k, f in filter(l, freq)]
+                alls.sort(key=lambda x: x[0])
+                freq = [i[1] for i in alls]
+                l = [i[0] for i in alls]
+                presum_freq = fast(freq)
+                pre_s = sum(freq)
+                if pre_s % 2 == 0:
+                        k = (pre_s // 2)
+                        k_ = k + 1
+                        pos1 = 0; pos2 = 0
+                        for i in presum_freq:
+                                if k > i:
+                                        pos1 += 1
+                                else: break
+                        for i_ in presum_freq:
+                                if k_ > i_:
+                                        pos2 += 1
+                                else: break
+                        print(l[pos1]), l[pos2]
+                        return (1/2) * (l[pos1] + l[pos2])
+                else:
+                        print("Running here 3")
+                        k = (pre_s - 1) // 2
+                        pos = 0
+                        for i in freq:
+                                k -= i
+                                if k < 0:
+                                        break
+                                pos += 1
+                        return l[pos]
+        else:
+                if choice:
+                        print("Running here 4")
+                        freq = [1 for _ in l]
+                        import bisect
+                        alls = [[k, f] for k, f in filter(l, freq)]
+                        alls.sort(key=lambda x: x[0])
+                        freq = [i[1] for i in alls]
+                        l = [i[0] for i in alls]
+                        presum_freq = fast(freq)
+                        pre_s = sum(freq)
+                        if pre_s % 2 == 0:
+                                k = (pre_s // 2)
+                                k_ = k + 1
+                                pos1 = bisect.bisect_right(presum_freq, k)
+                                pos2 = bisect.bisect_right(presum_freq, k_)
+                                return (1/2) * (l[pos1] + l[pos2])
+                        else:
+                                k = (pre_s - 1) // 2
+                                pos = bisect.bisect_right(presum_freq, k)
+                                return l[pos]
+                print("Running here 5")
+                l = sorted(l)
+                n = len(l)
+                if n % 2 == 0:
+                        k = n // 2
+                        res = (1/2) * (l[k - 1] + l[k])
+                        res = (res)
+                        return res
+                else:
+                        k = (n - 1) // 2
+                        return (l[k])
+if __name__ == "__main__":
+       l = [25, 26, 27, 29, 31, 34]
+       freq = [4, 7, 8, 3, 1, 1]
+       print(median(l, freq))
