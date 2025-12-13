@@ -375,6 +375,7 @@ def preprocess_expression(expr: str) -> str:
 def evaluate_expression(expr: str, simplify_symbolic=True, /):
     global variable, A, B, C, D, E, F, x, y, z, M, names, Ans, app
     expr_clean = preprocess_expression(expr)
+
     safe = {
         "sin": sin, "cos": cos, "tan": tan,
         "asin": asin, "acos": acos, "atan": atan,
@@ -386,18 +387,13 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /):
         "inte": inte,
         "log": log,
         "nth_root": nth_root,
-        #"returning": returning,
         "pi": pi,
         "e": e,
         "comb": comb,
         "factorial": factorial,
         "perm": perm
     }
-    #try:
-    #    rcl()
-    #except Exception as es:
-    #    print(es)
-    #    exit(1)
+
     avail_vars = {k: v for k, v in zip(names, variable)}
     new_ = avail_vars | {"Ans": Ans} | actual_val_const
 
@@ -411,27 +407,31 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /):
             if simplify_symbolic:
                 s = sym_simplify(radsimp(s))
 
-            # Nếu s là số (Integer/Float/Rational) -> convert về Python
-            if s.is_real:
-                # Float
+            # Trường hợp trả về NUMBER thực, không ký hiệu
+            if s.is_number and not s.free_symbols:
                 return returning(float(s))
 
-            # Nếu là biểu thức, trả về chuỗi (hoặc tùy bạn)
-            else:
-                a = list(map(str, s.free_symbols))
-                if any((not i in avail_vars.keys()) for i in a):
-                    raise ValueError(MATH_ERROR)
-                if app and "sqrt" in str(s):
-                    return str(s)
-                else: pass
+            # --- SYMBOLIC + app mode ---
+            if app:
+                s_str = str(s)
+
+                # nếu chứa sqrt và không chứa biến không hợp lệ
+                if "sqrt" in s_str:
+                    bad = s.free_symbols - set(avail_vars.keys())
+                    if not bad:
+                        return s_str
+
+            # Còn lại: trả về dạng float
+            s = str(s)
 
         except Exception as es:
             print(es)
 
-    # Nếu SymPy fail -> eval thủ công
+    # Nếu SymPy fail -> eval
     safe |= new_
     res = eval(expr_clean, {"__builtins__": {}}, safe)
-    res = returning(res); Ans = res
+    res = returning(res)
+    Ans = res
     return res
 
 def solve_eq(expr: str, vars_val, var='x'):
@@ -744,8 +744,10 @@ dict_of_setting = {
     "Table": 1 # f(x) / f(x), g(x)
     #"Language" # 1. English/ 2. Tiếng Việt
 }
-lst_of_stop = ["stop", "off", "exit", "quit"]
+#lst_of_stop = ["stop", "off", "exit", "quit"]
 def stat_setting(choice: int = dict_of_setting["Statistics"]):
+    global dict_of_setting
+    dict_of_setting["Statistics"] = choice
 
     # Lấy thư mục chứa file hiện tại
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
