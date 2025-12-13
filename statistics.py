@@ -154,10 +154,9 @@ def mean(l: list, freq: list | None = None):
                res = sum(l[i] * freq[i] for i in range(len(l))) / n
                return returning(res)
        else:
-               if choice:
-                       freq = [1 for _ in l]
-                       return mean(l, freq)
-               return mean(l)
+               freq = [1 for _ in l]
+               return mean(l, freq)
+               
 def phuong_sai(l: list, freq: list | None = None):
         length = len(l)
         if not freq:
@@ -177,9 +176,9 @@ def phuong_sai(l: list, freq: list | None = None):
                 s = 0
                 for i in range(length):
                         s += (freq[i] * (l[i] - x_)**2) / n
-                s = int(s) if s.is_integer() else s
+                s = returning(s)
                 return s
-def do_lech_chuan(l: list[int], freq: list[int] = []):
+def do_lech_chuan(l: list, freq: list | None = None):
         return pow(phuong_sai(l, freq), 0.5)
 
 if __name__ == "__main__":
