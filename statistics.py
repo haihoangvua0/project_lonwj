@@ -1,18 +1,19 @@
+"""Correcting... Cannot actually use at the moment"""
 from process_front_end import *
 from collections import Counter
 
 stat_setting(1)
 choice = dict_of_setting["Statistics"]
-def fast(l: list[int]):
-        fast = []
-        for i in range(len(l)):
-                if i == 0:
-                        fast.append(l[0])
-                        continue
-                fast.append(fast[i-1] + l[i])
-        return fast
+#def fast(l: list[int]):
+#        fast = []
+#        for i in range(len(l)):
+#                if i == 0:
+#                        fast.append(l[0])
+#                        continue
+#                fast.append(fast[i-1] + l[i])
+#        return fast
 
-def median(l: list[int], freq: list | None = None):
+def median(l: list[int], freq: list | None = None, *, need: bool = False):
         # Control the reputation in list of vals
         global choice
         #choice = 1
@@ -38,63 +39,104 @@ def median(l: list[int], freq: list | None = None):
                 alls.sort(key=lambda x: x[0])
                 freq = [i[1] for i in alls]
                 l = [i[0] for i in alls]
-                presum_freq = fast(freq)
+                #presum_freq = fast(freq)
                 pre_s = sum(freq)
                 if pre_s % 2 == 0:
                         k = (pre_s // 2)
                         k_ = k + 1
                         pos1 = 0; pos2 = 0
-                        for i in presum_freq:
-                                if k > i:
+                        for i in freq:
+                                k -= i
+                                if k > 0:
                                         pos1 += 1
-                                else: break
-                        for i_ in presum_freq:
-                                if k_ > i_:
+                                else: 
+                                        k = abs(k)
+                                        break
+                        
+                        for i_ in freq:
+                                k_ -= i_
+                                if k_ > 0:
                                         pos2 += 1
-                                else: break
+                                else: 
+                                        k_ = abs(k_)
+                        res = returning((1/2) * (l[pos1] + l[pos2]))
+                        if need:
+                                return (res, pos1, pos2, k, k_)
                         #print(l[pos1], l[pos2])
-                        return returning((1/2) * (l[pos1] + l[pos2]))
+                        return res
                 else:
                         #print("Running here 3")
                         k = (pre_s - 1) // 2 + 1
                         pos = 0
-                        for i in presum_freq:
-                                if k > i:
+                        for i in freq:
+                                k -= i
+                                if k > 0:
                                         pos += 1
-                                else: break
-                        return returning(l[pos])
+                                else: 
+                                        k = abs(k)
+                                        break
+                        res = returning(l[pos])
+                        if need:
+                                return (res, pos, k)
+                        return res
         else:
                 freq = [1 for _ in l]
                 return median(l, freq)
 # min, max
 
-def tu_phan_vi(l: list, freq: list):
-        """Idea to fix:
-        1. Freq
-        2. Zip
-        3. DEBUGGING.
-        4. CORRECTING
-        """
-        l = sorted(l)
-        n = len(l)
-        print(l)
-        q2 = median(l)
-        if n % 2 == 0: 
-                new = l[:(n // 2) + 1] + [q2]
-                new1 = [q2] + l[(n // 2) + 1:]
-                q1 = median(new)
-                q3 = median(new1)
-                return (q1, q2, q3)
+def tu_phan_vi(l: list, freq: list | None = None):
+        global choice
+        if freq and freq is not None:
+                if not choice:
+                        l = sorted(l)
+                        n = len(l)
+                        print(l)
+                        q2 = median(l)
+                        if n % 2 == 0: 
+                                new = l[:(n // 2) + 1] + [q2]
+                                new1 = [q2] + l[(n // 2) + 1:]
+                                q1 = median(new)
+                                q3 = median(new1)
+                                return (q1, q2, q3)
+                        else:
+                                k = (n - 1) // 2
+                                new = l[:k]
+                                new1 = l[k + 1:]
+                                q1 = median(new)
+                                q3 = median(new1)
+                                return (q1, q2, q3)
+                res = median(l, freq, need=bool)
+                q2 = res[0]
+                if len(res) == 3: # odd
+                        _, pos, miss = res
+                        l1 = l[:(pos + 1)]; l2 = l[pos:]
+                        freq1 = freq[:(pos + 1)]; freq2 = freq[pos:]
+                        freq1[-1] -= (miss + 1); freq2[0] = miss
+                        if freq1[-1] == 0:
+                                freq1.pop(); l1.pop()
+                        if freq2[0] == 0:
+                                freq2.pop(0); l2.pop(0)
+                        #print(freq1, freq2, sep="\n")
+                        q1 = median(l=l1, freq=freq1)
+                        q3 = median(l=l2, freq=freq2)
+                        return (q1, q2, q3)
+                else: # even
+                        _, pos1, pos2, k1, k2 = res
+                        l1 = l[:(pos1 + 1)]
+                        l2 = l[pos2:]
+                        freq1 = freq[:(pos1 + 1)]
+                        freq2 = freq[pos2:]
+                        freq1[-1] = abs((k1) - sum(freq1[:-1])); freq2[0] = abs(sum(freq2[1:]) - (k2))
+                        if freq1[-1] == 0:
+                                freq1.pop()
+                        q1 = median(l=l1, freq=freq1)
+                        q3 = median(l=l2, freq=freq2)
+                        return q1, q2, q3
         else:
-                k = (n - 1) // 2
-                new = l[:k]
-                new1 = l[k + 1:]
-                q1 = median(new)
-                q3 = median(new1)
-                return (q1, q2, q3)
+                return tu_phan_vi(l, [1 for _ in l])
 
 
-def hi(l: list[int], freq: list | None = None):
+def hi(l: list, freq: list | None = None):
         if not freq or freq is None:
                 new = Counter(l)
                 return new.most_common(1)[0][0]
@@ -103,20 +145,20 @@ def hi(l: list[int], freq: list | None = None):
 def mean(l: list, freq: list | None = None):
         global choice
         if freq is not None and freq:
-               if not choice:
-                       res = sum(l) / len(l)
-                       #res = int(res) if res.is_integer() else res
-                       return returning(res)
-               miss = len(l) - len(freq)
-               n = sum(freq)
-               if miss:
-                       fill = [1 for _ in range(miss)]
-                       freq += fill
-               res = sum(l[i] * freq[i] for i in range(len(l))) / n
-               return returning(res)
+                if not choice:
+                        res = sum(l) / len(l)
+                        #res = int(res) if res.is_integer() else res
+                        return returning(res)
+                miss = len(l) - len(freq)
+                n = sum(freq)
+                if miss:
+                        fill = [1 for _ in range(miss)]
+                        freq += fill
+                res = sum(l[i] * freq[i] for i in range(len(l))) / n
+                return returning(res)
         else:
-               freq = [1 for _ in l]
-               return mean(l, freq)
+                freq = [1 for _ in l]
+                return mean(l, freq)
                
 def phuong_sai(l: list, freq: list | None = None):
         length = len(l)
@@ -143,10 +185,6 @@ def do_lech_chuan(l: list, freq: list | None = None):
         return pow(phuong_sai(l, freq), 0.5)
 
 if __name__ == "__main__":
-       l = [10, 20, 30, 20]
-       freq = [1, 2, 1, 1]
-       res = []
-       for i, k in zip(l, freq):
-               res.extend([i] * k)
-       print(res)
-       print(median(l, freq))
+        a = list(map(eval, """30 32 47 31 32 30 32 29 17 29 32 31""".split()))
+        b = list(map(eval, """32 29 32 30 32 31 29 31 32 30 31 29""".split()))
+        print(tu_phan_vi(a), tu_phan_vi(b))
