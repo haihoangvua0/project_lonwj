@@ -219,25 +219,6 @@ def is_scientific_notation(n: float) -> float:
         base = base.rstrip("0")
         return float(f"{base}e{exp}")
 
-
-def split_sqrt_basic(n: float, eps=1e-12, max_b=200):
-    """Tìm a, b sao cho n ≈ a*sqrt(b) với b square-free."""
-    if n < 0:
-        return None
-
-    for b in range(2, max_b + 1):
-        r = int(math.isqrt(b))
-        if r*r == b:
-            continue  # bỏ b bình phương
-
-        a = n / math.sqrt(b)
-        if abs(a*math.sqrt(b) - n) < eps:
-            frac = Fraction(a).limit_denominator()
-            return float(frac), b
-
-    return None
-
-
 # ---------------------------------------------------------
 # 5. Unified returning()
 # ---------------------------------------------------------
@@ -250,7 +231,8 @@ def returning(n: int | float | Decimal | str,
     Trả về số đã rút gọn.
     - choice="S": ưu tiên dạng Fraction.
     """
-
+    if dict_of_setting["Statistics"]:
+        choice = D # -> mặc định.
     # ----------------------
     # 0) Decimal -> float
     # ----------------------
@@ -758,7 +740,7 @@ def stat_setting(choice: int = dict_of_setting["Statistics"]):
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(f"{choice}")
 def eq_fu_settings(choice: int = dict_of_setting["Equation/ Function"]):
-
+    dict_of_setting["Equation/ Function"] = choice
     # Lấy thư mục chứa file hiện tại
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -769,7 +751,7 @@ def eq_fu_settings(choice: int = dict_of_setting["Equation/ Function"]):
         f.write(f"{choice}")
 
 def table_settings(choice: int = dict_of_setting["Table"]):
-
+    dict_of_setting["Table"] = choice
     # Lấy thư mục chứa file hiện tại
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -825,3 +807,4 @@ file_path = os.path.join(BASE_DIR, "run.txt")
 with open(file_path, "w", encoding="utf-8") as f:
     f.writelines(res)
 print("Done")
+os.system("cls" if os.name == "nt" else "clear")
