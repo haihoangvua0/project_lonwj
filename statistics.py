@@ -152,12 +152,10 @@ def do_lech_chuan(l: list, freq: list | None = None):
 def khoang_bien_thien(l: list, freq: list | None = None):
         if not freq or freq is None:
                 l = sorted(l)
-                return returning(l[-1] - l[0])s
-    
+                return returning(l[-1] - l[0])
         # Có tần số
         data = sorted(zip(l, freq), key=lambda x: x[0])
         values = [x for x, _ in data]
-    
         return returning(values[-1] - values[0])
 
 def khoang_tu_phan_vi(l: list, freq: list | None = None):
@@ -190,34 +188,34 @@ if __name__ == "__main__":
 #    else:
 #        print(l)
 
-    print("\n--- CÁC ĐẠI LƯỢNG THỐNG KÊ ---")
-    
-    # Số lượng
-    n = sum(freq) if freq else len(l)
-    print(f"{n = }")
-    # Trung bình
-    print("Trung bình:", mean(l, freq))
+        print("\n--- CÁC ĐẠI LƯỢNG THỐNG KÊ ---")
+        
+        # Số lượng
+        n = sum(freq) if freq else len(l)
+        print(f"{n = }")
+        # Trung bình
+        print("Trung bình:", mean(l, freq))
 
-    # Trung vị
-    print("Trung vị:", median(l, freq))
+        # Trung vị
+        print("Trung vị:", median(l, freq))
 
-    # Tứ phân vị
-    q1, q2, q3 = tu_phan_vi(l, freq)
-    print("Q1 =", q1)
-    print("Q2 =", q2)
-    print("Q3 =", q3)
+        # Tứ phân vị
+        q1, q2, q3 = tu_phan_vi(l, freq)
+        print("Q1 =", q1)
+        print("Q2 =", q2)
+        print("Q3 =", q3)
 
-    # Mốt
-    print("Mốt:", hi(l, freq))
+        # Mốt
+        print("Mốt:", hi(l, freq))
 
-    # Khoảng biến thiên
-    print("Khoảng biến thiên:", khoang_bien_thien(l, freq))
+        # Khoảng biến thiên
+        print("Khoảng biến thiên:", khoang_bien_thien(l, freq))
 
-    # Khoảng tứ phân vị
-    print("Khoảng tứ phân vị:", khoang_tu_phan_vi(l, freq))
+        # Khoảng tứ phân vị
+        print("Khoảng tứ phân vị:", khoang_tu_phan_vi(l, freq))
 
-    # Phương sai & độ lệch chuẩn
-    print("Phương sai:", phuong_sai(l, freq))
-    print("Độ lệch chuẩn:", do_lech_chuan(l, freq))
+        # Phương sai & độ lệch chuẩn
+        print("Phương sai:", phuong_sai(l, freq))
+        print("Độ lệch chuẩn:", do_lech_chuan(l, freq))
 
-    print("\n=== KẾT THÚC ===")
+        print("\n=== KẾT THÚC ===")
