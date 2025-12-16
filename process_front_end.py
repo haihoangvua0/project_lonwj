@@ -41,7 +41,6 @@ def stor(**var_input: int):
         for i in variable:
             f.write(f"{i}\n")
 
-
 # 1. Constants
 actual_val_const = {
     # =========================
@@ -133,6 +132,75 @@ def set_angle_mode(mode: str):
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(ANGLE_MODE)
+
+dict_of_setting = {
+    "Angle unit": ANGLE_MODE,
+    "Statistics": 0, # Freq on or of
+    "Equation/ Function": 0, # Mở kết quả số phức
+    "Table": 1 # f(x) / f(x), g(x)
+    #"Language" # 1. English/ 2. Tiếng Việt
+}
+#lst_of_stop = ["stop", "off", "exit", "quit"]
+def stat_setting(choice: int = dict_of_setting["Statistics"]):
+    global dict_of_setting
+    dict_of_setting["Statistics"] = choice
+
+    # Lấy thư mục chứa file hiện tại
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # Nối đường dẫn tuyệt đối tới file muốn mở
+    file_path = os.path.join(BASE_DIR, "statistics.txt")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(f"{choice}")
+def eq_fu_settings(choice: int = dict_of_setting["Equation/ Function"]):
+    dict_of_setting["Equation/ Function"] = choice
+    # Lấy thư mục chứa file hiện tại
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # Nối đường dẫn tuyệt đối tới file muốn mở
+    file_path = os.path.join(BASE_DIR, "equation_funcs.txt")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(f"{choice}")
+
+def table_settings(choice: int = dict_of_setting["Table"]):
+    dict_of_setting["Table"] = choice
+    # Lấy thư mục chứa file hiện tại
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # Nối đường dẫn tuyệt đối tới file muốn mở
+    file_path = os.path.join(BASE_DIR, "table.txt")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(f"{choice}")
+def stor_settings():
+    global ANGLE_MODE, dict_of_setting
+
+    # Lấy thư mục chứa file hiện tại
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # Nối đường dẫn tuyệt đối tới file muốn mở
+    file_path = os.path.join(BASE_DIR, "mode_angle.txt")
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        ANGLE_MODE = f.readline()
+        dict_of_setting["Angle unit"] = ANGLE_MODE
+
+    file_path = os.path.join(BASE_DIR, "statistics.txt")
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        dict_of_setting["Statistics"] = int(f.readline())
+
+    file_path = os.path.join(BASE_DIR, "equation_funcs.txt")
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        dict_of_setting["Equation/ Function"] = int(f.readline())
+
+    file_path = os.path.join(BASE_DIR, "table.txt")
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        dict_of_setting["Table"] = int(f.readline())
 
 def _to_radian_if_needed(x: float):
     global ANGLE_MODE
@@ -231,8 +299,8 @@ def returning(n: int | float | Decimal | str,
     Trả về số đã rút gọn.
     - choice="S": ưu tiên dạng Fraction.
     """
-    if dict_of_setting["Statistics"]:
-        choice = D # -> mặc định.
+    #if dict_of_setting["Statistics"]:
+    #    choice = "D" # -> mặc định.
     # ----------------------
     # 0) Decimal -> float
     # ----------------------
@@ -719,74 +787,6 @@ def rcl():
         variable = list(map(returning, map(evaluate_expression, f.read().splitlines())))
 rcl()
 # lst_of_cmd = ["[solve]", '[calc]', "[settings]"]
-dict_of_setting = {
-    "Angle unit": ANGLE_MODE,
-    "Statistics": 0, # Freq on or of
-    "Equation/ Function": 0, # Mở kết quả số phức
-    "Table": 1 # f(x) / f(x), g(x)
-    #"Language" # 1. English/ 2. Tiếng Việt
-}
-#lst_of_stop = ["stop", "off", "exit", "quit"]
-def stat_setting(choice: int = dict_of_setting["Statistics"]):
-    global dict_of_setting
-    dict_of_setting["Statistics"] = choice
-
-    # Lấy thư mục chứa file hiện tại
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-    # Nối đường dẫn tuyệt đối tới file muốn mở
-    file_path = os.path.join(BASE_DIR, "statistics.txt")
-
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(f"{choice}")
-def eq_fu_settings(choice: int = dict_of_setting["Equation/ Function"]):
-    dict_of_setting["Equation/ Function"] = choice
-    # Lấy thư mục chứa file hiện tại
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-    # Nối đường dẫn tuyệt đối tới file muốn mở
-    file_path = os.path.join(BASE_DIR, "equation_funcs.txt")
-
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(f"{choice}")
-
-def table_settings(choice: int = dict_of_setting["Table"]):
-    dict_of_setting["Table"] = choice
-    # Lấy thư mục chứa file hiện tại
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-    # Nối đường dẫn tuyệt đối tới file muốn mở
-    file_path = os.path.join(BASE_DIR, "table.txt")
-
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(f"{choice}")
-def stor_settings():
-    global ANGLE_MODE, dict_of_setting
-
-    # Lấy thư mục chứa file hiện tại
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-    # Nối đường dẫn tuyệt đối tới file muốn mở
-    file_path = os.path.join(BASE_DIR, "mode_angle.txt")
-
-    with open(file_path, "r", encoding="utf-8") as f:
-        ANGLE_MODE = f.readline()
-        dict_of_setting["Angle unit"] = ANGLE_MODE
-
-    file_path = os.path.join(BASE_DIR, "statistics.txt")
-
-    with open(file_path, "r", encoding="utf-8") as f:
-        dict_of_setting["Statistics"] = int(f.readline())
-
-    file_path = os.path.join(BASE_DIR, "equation_funcs.txt")
-
-    with open(file_path, "r", encoding="utf-8") as f:
-        dict_of_setting["Equation/ Function"] = int(f.readline())
-
-    file_path = os.path.join(BASE_DIR, "table.txt")
-
-    with open(file_path, "r", encoding="utf-8") as f:
-        dict_of_setting["Table"] = int(f.readline())
 #debug line
 #from time import sleep
 print("Set data")
@@ -807,4 +807,4 @@ file_path = os.path.join(BASE_DIR, "run.txt")
 with open(file_path, "w", encoding="utf-8") as f:
     f.writelines(res)
 print("Done")
-os.system("cls" if os.name == "nt" else "clear")
+os.system("cls" if os.name == "nt" else "clear") #
