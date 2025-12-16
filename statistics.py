@@ -4,19 +4,58 @@ from collections import Counter
 
 stat_setting(1)
 choice = dict_of_setting["Statistics"]
-#def fast(l: list[int]):
-#        fast = []
-#        for i in range(len(l)):
-#                if i == 0:
-#                        fast.append(l[0])
-#                        continue
-#                fast.append(fast[i-1] + l[i])
-#        return fast
 
-def median(l: list[int], freq: list | None = None, *, need: bool = False):
-        # Control the reputation in list of vals
+def value_at_k(values: list, freq: list, *, k: int = 0):
+        """
+        Trả về giá trị ứng với phần tử thứ k
+        (đếm từ trái sang phải, đúng kiểu SGK)
+        """
+        count = 0
+        for i in range(len(values)):
+                count += freq[i]
+                if count >= k:
+                        return values[i]
+def median_freq(values: list, freq: list):
+        # Sắp xếp theo giá trị
+        data = sorted(zip(values, freq), key=lambda x: x[0])
+        values = [x for x, _ in data]
+        freq   = [f for _, f in data]
+    
+        N = sum(freq)
+    
+        if N % 2 == 1:
+                k = (N + 1) // 2
+                return returning(value_at_k(values, freq, k=k))
+        else:
+                k1 = N // 2
+                k2 = k1 + 1
+                x1 = value_at_k(values, freq, k = k1)
+                x2 = value_at_k(values, freq, k = k2)
+                return returning((x1 + x2) / 2)
+def quartiles_freq(values: list, freq: list):
+        data = sorted(zip(values, freq), key=lambda x: x[0])
+        values = [x for x, _ in data]
+        freq   = [f for _, f in data]
+    
+        N = sum(freq)
+        def get_quartile(pos: int | float | Fraction):
+                if pos.is_integer():
+                        return value_at_k(values, freq, k=int(pos))
+                else:
+                        k1 = int(pos)
+                        k2 = k1 + 1
+                        x1 = value_at_k(values, freq, k=k1)
+                        x2 = value_at_k(values, freq, k=k2)
+                        return returning((x1 + x2) / 2)
+    
+        Q1 = get_quartile((N + 1) / 4)
+        Q2 = get_quartile((N + 1) / 2)
+        Q3 = get_quartile(3 * (N + 1) / 4)
+    
+        return Q1, Q2, Q3
+
+def median(l: list, freq: list | None = None):
         global choice
-        #choice = 1
         if freq:
                 n = len(l)
                 if choice == 0:
@@ -32,58 +71,10 @@ def median(l: list[int], freq: list | None = None, *, need: bool = False):
                         else:
                                 k = (n - 1) // 2
                                 return returning(l[k])
-                # Check the length of the list 'frequency'
-                #print("Running here 2")
-                import bisect
-                alls = [(k, f) for k, f in zip(l, freq)]
-                alls.sort(key=lambda x: x[0])
-                freq = [i[1] for i in alls]
-                l = [i[0] for i in alls]
-                #presum_freq = fast(freq)
-                pre_s = sum(freq)
-                if pre_s % 2 == 0:
-                        k = (pre_s // 2)
-                        k_ = k + 1
-                        pos1 = 0; pos2 = 0
-                        for i in freq:
-                                k -= i
-                                if k > 0:
-                                        pos1 += 1
-                                else: 
-                                        k = abs(k)
-                                        break
-                        
-                        for i_ in freq:
-                                k_ -= i_
-                                if k_ > 0:
-                                        pos2 += 1
-                                else: 
-                                        k_ = abs(k_)
-                        res = returning((1/2) * (l[pos1] + l[pos2]))
-                        if need:
-                                return (res, pos1, pos2, k, k_)
-                        #print(l[pos1], l[pos2])
-                        return res
-                else:
-                        #print("Running here 3")
-                        k = (pre_s - 1) // 2 + 1
-                        pos = 0
-                        for i in freq:
-                                k -= i
-                                if k > 0:
-                                        pos += 1
-                                else: 
-                                        k = abs(k)
-                                        break
-                        res = returning(l[pos])
-                        if need:
-                                return (res, pos, k)
-                        return res
+                return median_freq(l, freq)
         else:
                 freq = [1 for _ in l]
                 return median(l, freq)
-# min, max
-
 def tu_phan_vi(l: list, freq: list | None = None):
         global choice
         if freq and freq is not None:
@@ -93,8 +84,8 @@ def tu_phan_vi(l: list, freq: list | None = None):
                         print(l)
                         q2 = median(l)
                         if n % 2 == 0: 
-                                new = l[:(n // 2) + 1] + [q2]
-                                new1 = [q2] + l[(n // 2) + 1:]
+                                new = l[:(n // 2) + 1]
+                                new1 = l[(n // 2) + 1:]
                                 q1 = median(new)
                                 q3 = median(new1)
                                 return (q1, q2, q3)
@@ -105,36 +96,10 @@ def tu_phan_vi(l: list, freq: list | None = None):
                                 q1 = median(new)
                                 q3 = median(new1)
                                 return (q1, q2, q3)
-                res = median(l, freq, need=bool)
-                q2 = res[0]
-                if len(res) == 3: # odd
-                        _, pos, miss = res
-                        l1 = l[:(pos + 1)]; l2 = l[pos:]
-                        freq1 = freq[:(pos + 1)]; freq2 = freq[pos:]
-                        freq1[-1] -= (miss + 1); freq2[0] = miss
-                        if freq1[-1] == 0:
-                                freq1.pop(); l1.pop()
-                        if freq2[0] == 0:
-                                freq2.pop(0); l2.pop(0)
-                        #print(freq1, freq2, sep="\n")
-                        q1 = median(l=l1, freq=freq1)
-                        q3 = median(l=l2, freq=freq2)
-                        return (q1, q2, q3)
-                else: # even
-                        _, pos1, pos2, k1, k2 = res
-                        l1 = l[:(pos1 + 1)]
-                        l2 = l[pos2:]
-                        freq1 = freq[:(pos1 + 1)]
-                        freq2 = freq[pos2:]
-                        freq1[-1] = abs((k1) - sum(freq1[:-1])); freq2[0] = abs(sum(freq2[1:]) - (k2))
-                        if freq1[-1] == 0:
-                                freq1.pop()
-                        q1 = median(l=l1, freq=freq1)
-                        q3 = median(l=l2, freq=freq2)
-                        return q1, q2, q3
-        else:
-                return tu_phan_vi(l, [1 for _ in l])
-
+                return quartiles_freq(l, freq)
+        else:   
+                freq = [1 for _ in l]
+                return tu_phan_vi(l, freq)
 
 def hi(l: list, freq: list | None = None):
         if not freq or freq is None:
@@ -159,7 +124,7 @@ def mean(l: list, freq: list | None = None):
         else:
                 freq = [1 for _ in l]
                 return mean(l, freq)
-               
+
 def phuong_sai(l: list, freq: list | None = None):
         length = len(l)
         if not freq:
@@ -184,7 +149,75 @@ def phuong_sai(l: list, freq: list | None = None):
 def do_lech_chuan(l: list, freq: list | None = None):
         return pow(phuong_sai(l, freq), 0.5)
 
+def khoang_bien_thien(l: list, freq: list | None = None):
+        if not freq or freq is None:
+                l = sorted(l)
+                return returning(l[-1] - l[0])s
+    
+        # Có tần số
+        data = sorted(zip(l, freq), key=lambda x: x[0])
+        values = [x for x, _ in data]
+    
+        return returning(values[-1] - values[0])
+
+def khoang_tu_phan_vi(l: list, freq: list | None = None):
+        if not freq or freq is None:
+                freq = [1 for _ in l]
+    
+        Q1, _, Q3 = tu_phan_vi(l, freq)
+        return returning(Q3 - Q1)
+
 if __name__ == "__main__":
-        a = list(map(eval, """30 32 47 31 32 30 32 29 17 29 32 31""".split()))
-        b = list(map(eval, """32 29 32 30 32 31 29 31 32 30 31 29""".split()))
-        print(tu_phan_vi(a), tu_phan_vi(b))
+        print("=== THỐNG KÊ DỮ LIỆU (SGK LỚP 10) ===")
+    
+        # Nhập dữ liệu
+        raw_vals = input("Nhập các giá trị (cách nhau bằng khoảng trắng): ").strip()
+        raw_freq = input("Nhập tần số tương ứng (để trống nếu không có): ").strip()
+    
+        l = list(map(evaluate_expression, raw_vals.split()))
+    
+        if raw_freq:
+                freq = list(map(lambda x: evaluate_expression(x), raw_freq.split()))
+                if len(freq) != len(l):
+                        exit("Số lượng giá trị và tần số không khớp!")
+        else:
+                freq = None
+
+    #print("\n--- DỮ LIỆU SAU XỬ LÍ ---")
+#    if freq:
+#        for v, f in zip(l, freq):
+#            print(f"Giá trị {v} xuất hiện {f} lần")
+#    else:
+#        print(l)
+
+    print("\n--- CÁC ĐẠI LƯỢNG THỐNG KÊ ---")
+    
+    # Số lượng
+    n = sum(freq) if freq else len(l)
+    print(f"{n = }")
+    # Trung bình
+    print("Trung bình:", mean(l, freq))
+
+    # Trung vị
+    print("Trung vị:", median(l, freq))
+
+    # Tứ phân vị
+    q1, q2, q3 = tu_phan_vi(l, freq)
+    print("Q1 =", q1)
+    print("Q2 =", q2)
+    print("Q3 =", q3)
+
+    # Mốt
+    print("Mốt:", hi(l, freq))
+
+    # Khoảng biến thiên
+    print("Khoảng biến thiên:", khoang_bien_thien(l, freq))
+
+    # Khoảng tứ phân vị
+    print("Khoảng tứ phân vị:", khoang_tu_phan_vi(l, freq))
+
+    # Phương sai & độ lệch chuẩn
+    print("Phương sai:", phuong_sai(l, freq))
+    print("Độ lệch chuẩn:", do_lech_chuan(l, freq))
+
+    print("\n=== KẾT THÚC ===")
