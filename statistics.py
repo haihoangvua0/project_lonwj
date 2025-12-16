@@ -1,4 +1,4 @@
-"""Correcting... Cannot actually use at the moment"""
+"""Statistics functions (Repaired and Collected; updating is in progress)"""
 from process_front_end import *
 from collections import Counter
 
