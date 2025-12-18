@@ -1,13 +1,18 @@
+"""class Gồm có:
+- Định thức -> Vuông
+- Chuyển vị -> Vuông
+- Đơn vị -> Vuông
+- Nhân (có hướng, vô hướng)
+- Cộng, trừ
+- Bình, lập phương -> Vuông
+Các hàm gồm:
+- Det -> Định thức
+- Trn -> Chuyển vị
+- Inv -> Đảo.
+"""
 from process_front_end import *
 from fractions import Fraction as frac
-"""class Gồm có:
-Định thức -> Vuông
-Chuyển vị -> Vuông
-Đơn vị -> Vuông
-Nhân (có hướng, vô hướng)
-Cộng, trừ
-Bình, lập phương -> Vuông
-"""
+
 class MatrixError(Exception):
         """
         Lỗi tổng quát liên quan tới ma trận
@@ -52,23 +57,23 @@ class Matrix:
                         raise MatrixShapeError("Determinant only defined for square matrices")
         
                 n = self.m
-                a = self.data.copy()
+                a = [row[:] for row in self.data]
         
                 # 1x1
                 if n == 1:
-                        return a[0][0]
+                        return returning(a[0][0], "S")
         
                 # 2x2
                 if n == 2:
-                        return a[0][0]*a[1][1] - a[0][1]*a[1][0]
+                        return returning(a[0][0]*a[1][1] - a[0][1]*a[1][0], "S")
         
                 # 3x3
                 if n == 3:
-                        return (
+                        return returning(
                                 a[0][0]*(a[1][1]*a[2][2] - a[1][2]*a[2][1])
                               - a[0][1]*(a[1][0]*a[2][2] - a[1][2]*a[2][0])
                               + a[0][2]*(a[1][0]*a[2][1] - a[1][1]*a[2][0])
-                        )
+                        , "S")
         
                 # 4x4 — Laplace theo hàng 0
                 if n == 4:
@@ -77,28 +82,28 @@ class Matrix:
                                 sign = (-1) ** j
                                 minor = self._minor(0, j)
                                 res += sign * a[0][j] * minor.det()
-                        return res
+                        return returning(res, "S")
         
                 raise MatrixError("Only support 1 <= (int) n <= 4")
-        def inverse(self):
-                def adjugate(self):
-                        def _minor(self, row, col):
-                                data = [
-                                        [self.data[i][j] for j in range(self.n) if j != col]
-                                        for i in range(self.m) if i != row
-                                ]
-                                return Matrix(data)
-                        n = self.m
-                        cof = [[0]*n for _ in range(n)]
-                    
-                        for i in range(n):
-                                for j in range(n):
-                                        minor = self._minor(i, j)
-                                        cof[i][j] = ((-1)**(i+j)) * minor.det()
+        def _minor(self, row, col):
+                data = [
+                        [returning(self.data[i][j], "S") for j in range(self.n) if j != col]
+                        for i in range(self.m) if i != row
+                ]
+                return Matrix(data)
+        def adjugate(self):
+                n = self.m
+                cof = [[0]*n for _ in range(n)]
+                
+                for i in range(n):
+                        for j in range(n):
+                                minor = self._minor(i, j)
+                                cof[i][j] = returning(((-1)**(i+j)) * minor.det(), "S")
 
-                        # transpose
-                        adj = [[cof[j][i] for j in range(n)] for i in range(n)]
-                        return Matrix(adj)
+                # transpose
+                adj = [[returning(cof[j][i], "S") for j in range(n)] for i in range(n)]
+                return Matrix(adj)
+        def inverse(self):
                 if self.m != self.n:
                         raise MatrixPowerError("Inverse only exists for square matrices")
                 
@@ -107,7 +112,7 @@ class Matrix:
                         raise MatrixPowerError("Matrix is singular (det = 0)")
             
                 adj = self.adjugate()
-                res = [[adj.data[i][j] / d \
+                res = [[returning(adj.data[i][j] / d, "S") \
                         for j in range(self.n)] \
                         for i in range(self.m)]
                 return Matrix(res)
@@ -120,10 +125,21 @@ class Matrix:
                 for i in range(self.m):
                         for j in range(self.n):
                                 new_data[j][i] = self.data[i][j]
-        
                 return Matrix(new_data)
         def __len__(self):
-                return len(self.data)
+                return (len(t := self.data), len(t[0]))
+        def __getitem__(self, idx):
+                if not isinstance(idx, (int)): raise MatrixError("Index must be int.")
+                if not self.data or not self.data[0]:
+                        raise MatrixError("Matrix is empty")
+                if isinstance(idx, tuple):
+                        i, j = idx
+                        if i < 0 or i >= self.m or j < 0 or j >= self.n:
+                                raise IndexError("Matrix index out of range")
+                        return self.data[i][j]
+                if idx < 0 or idx >= self.m:
+                        raise IndexError("Matrix row index out of range")
+                return self.data[idx]
         def __add__(self, other):
                 if not self.m == other.m or not self.n == other.n:
                         raise MatrixShapeError("Cannot plus 2 matrix as they are not in the same size")
@@ -167,7 +183,7 @@ class Matrix:
                 if isinstance(other, Matrix):
                         raise MatrixPowerError("Cannot make matrix A powered to matrix B")
                 elif isinstance(other, (float, frac, complex)):
-                        MatrixPowerError("Cannot power up to a(n) float number.")
+                       raise MatrixPowerError("Cannot power up to a(n) float number.")
                 elif isinstance(other, int):
                         if other >= 4:  raise MatrixPowerError("The exponent is too high")
                         elif other == -1: return self.inverse()
@@ -181,12 +197,14 @@ class Matrix:
         def __str__(self):
                 lines = []
                 for row in self.data:
-                        line =  "\t".join(str(x) for x in row)
+                        line =  "\t".join(f"{(x)}" for x in row)
                         lines.append(line)
                 return "\n".join(lines)
 
 Det = Matrix.det
 Trn = Matrix.transpose
-A = Matrix([[1, 2, 3], [4, 5, 6]])
-B = Matrix([[10, 15, 20], [25, 30, 35], [40, 45, 50]])
-print(pow(A, 1))
+Inv = Matrix.inverse # matA ** -1
+if __name__ == "__main__":
+        matA = Matrix([[1, 2, 3], [4, 5, 6]])
+        matB = Matrix([[11, 15, 20], [25, 30, 35], [40, 45, 50]])
+        print([Inv(matB)])
