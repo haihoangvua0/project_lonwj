@@ -41,6 +41,7 @@ def stor(**var_input: int):
         for i in variable:
             f.write(f"{i}\n")
 
+
 # 1. Constants
 actual_val_const = {
     # =========================
@@ -133,75 +134,6 @@ def set_angle_mode(mode: str):
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(ANGLE_MODE)
 
-dict_of_setting = {
-    "Angle unit": ANGLE_MODE,
-    "Statistics": 0, # Freq on or of
-    "Equation/ Function": 0, # Mở kết quả số phức
-    "Table": 1 # f(x) / f(x), g(x)
-    #"Language" # 1. English/ 2. Tiếng Việt
-}
-#lst_of_stop = ["stop", "off", "exit", "quit"]
-def stat_setting(choice: int = dict_of_setting["Statistics"]):
-    global dict_of_setting
-    dict_of_setting["Statistics"] = choice
-
-    # Lấy thư mục chứa file hiện tại
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-    # Nối đường dẫn tuyệt đối tới file muốn mở
-    file_path = os.path.join(BASE_DIR, "statistics.txt")
-
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(f"{choice}")
-def eq_fu_settings(choice: int = dict_of_setting["Equation/ Function"]):
-    dict_of_setting["Equation/ Function"] = choice
-    # Lấy thư mục chứa file hiện tại
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-    # Nối đường dẫn tuyệt đối tới file muốn mở
-    file_path = os.path.join(BASE_DIR, "equation_funcs.txt")
-
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(f"{choice}")
-
-def table_settings(choice: int = dict_of_setting["Table"]):
-    dict_of_setting["Table"] = choice
-    # Lấy thư mục chứa file hiện tại
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-    # Nối đường dẫn tuyệt đối tới file muốn mở
-    file_path = os.path.join(BASE_DIR, "table.txt")
-
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(f"{choice}")
-def stor_settings():
-    global ANGLE_MODE, dict_of_setting
-
-    # Lấy thư mục chứa file hiện tại
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-    # Nối đường dẫn tuyệt đối tới file muốn mở
-    file_path = os.path.join(BASE_DIR, "mode_angle.txt")
-
-    with open(file_path, "r", encoding="utf-8") as f:
-        ANGLE_MODE = f.readline()
-        dict_of_setting["Angle unit"] = ANGLE_MODE
-
-    file_path = os.path.join(BASE_DIR, "statistics.txt")
-
-    with open(file_path, "r", encoding="utf-8") as f:
-        dict_of_setting["Statistics"] = int(f.readline())
-
-    file_path = os.path.join(BASE_DIR, "equation_funcs.txt")
-
-    with open(file_path, "r", encoding="utf-8") as f:
-        dict_of_setting["Equation/ Function"] = int(f.readline())
-
-    file_path = os.path.join(BASE_DIR, "table.txt")
-
-    with open(file_path, "r", encoding="utf-8") as f:
-        dict_of_setting["Table"] = int(f.readline())
-
 def _to_radian_if_needed(x: float):
     global ANGLE_MODE
     if ANGLE_MODE == "DEG":
@@ -287,6 +219,25 @@ def is_scientific_notation(n: float) -> float:
         base = base.rstrip("0")
         return float(f"{base}e{exp}")
 
+
+def split_sqrt_basic(n: float, eps=1e-12, max_b=200):
+    """Tìm a, b sao cho n ≈ a*sqrt(b) với b square-free."""
+    if n < 0:
+        return None
+
+    for b in range(2, max_b + 1):
+        r = int(math.isqrt(b))
+        if r*r == b:
+            continue  # bỏ b bình phương
+
+        a = n / math.sqrt(b)
+        if abs(a*math.sqrt(b) - n) < eps:
+            frac = Fraction(a).limit_denominator()
+            return float(frac), b
+
+    return None
+
+
 # ---------------------------------------------------------
 # 5. Unified returning()
 # ---------------------------------------------------------
@@ -299,8 +250,7 @@ def returning(n: int | float | Decimal | str,
     Trả về số đã rút gọn.
     - choice="S": ưu tiên dạng Fraction.
     """
-    #if dict_of_setting["Statistics"]:
-    #    choice = "D" # -> mặc định.
+
     # ----------------------
     # 0) Decimal -> float
     # ----------------------
@@ -384,7 +334,7 @@ def preprocess_expression(expr: str) -> str:
     expr = re.sub(r'\s+', '', expr)
 
     funcs = ["sqrt", "sin", "cos", "tan", "asin", "acos", "atan",
-             "log", "ln", "exp", "sigma", "cm", "integral", "nth_root"]
+             "log", "ln", "exp", "sigma_s", "muls", "integral", "nth_root"]
     const = list(actual_val_const)
     funcs += const
 
@@ -432,8 +382,8 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /):
         "sqrt": sqrt,
         "ln": ln,
         "sums": sums,
-        "cm": cm,
-        "d_dy": d_dy,
+        "muls": muls,
+        "d_dx": d_dx,
         "inte": inte,
         "log": log,
         "nth_root": nth_root,
@@ -484,10 +434,10 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /):
     Ans = res
     return res
 
-def solve_eq(expr: str, vars_val, var='x'):
-    global A, B, C, D, E, F, x, y, z, M, actual_val_const, Ans
-    from sympy import sympify, Eq, Symbol, solve
-    try:
+def solve_eq(expr: str, var='x', *_, ask: bool = False, **vars_val):
+        global A, B, C, D, E, F, x, y, z, M, actual_val_const, Ans
+        from sympy import sympify, Eq, Symbol, solve
+    #try:
         expr = expr.replace("^", "**")
 
         # Nếu không có dấu "=", coi là =0
@@ -497,7 +447,7 @@ def solve_eq(expr: str, vars_val, var='x'):
         left, right = expr.split("=")
         left = preprocess_expression(left); right = preprocess_expression(right)
         # Lấy các biến trong biểu thức
-        from sympy import sympify
+        #from sympy import sympify
         symbols_left = list(sympify(left).free_symbols)
         symbols_right = list(sympify(right).free_symbols)
         #all_symbols = set(map(str, symbols_left + symbols_right))
@@ -533,15 +483,30 @@ def solve_eq(expr: str, vars_val, var='x'):
             return MATH_ERROR
 
         # Chỉ trả nghiệm thực đầu tiên
+        
+        if ask:
+            res = []
+            for s in sol:
+                re, im = s.as_real_imag()
+        
+                re_f = float(re.evalf())
+                im_f = float(im.evalf())
+        
+                if abs(im_f) < 1e-12:
+                    # nghiệm thực
+                    res.append(returning(re_f))
+                else:
+                    # nghiệm phức
+                    res.append(complex(re_f, im_f))
+            return res    
         for s in sol:
-            if s.is_real:
-                x_val = returning(float(s))
-                stor(x=x_val)
-                return x_val
-
+            if s.is_real: 
+                    x_val = returning(evaluate_expression(str(s)))
+                    stor(x=x_val)
+                    return x_val
         return MATH_ERROR
-    except Exception:
-        return MATH_ERROR
+    #except Exception:
+        #return MATH_ERROR
 
 
 # 7. Roots
@@ -634,7 +599,7 @@ def ln(num: float):
         raise ValueError("The number must be over 0")
     return (log(math.e, num))
 
-def d_dy(expression: str, val: int | None = None):
+def d_dx(expression: str, val: int | None = None):
     from sympy import symbols, diff, sympify
 
     x = symbols("x")
@@ -644,7 +609,7 @@ def d_dy(expression: str, val: int | None = None):
     derivative = diff(expr, x)
 
     if val is None:
-        return derivative
+        return str(derivative)
     else:
         # Trả về giá trị đạo hàm tại x = val
         try:
@@ -655,7 +620,6 @@ def d_dy(expression: str, val: int | None = None):
                 return evaluate_expression(str(res)) 
         except Exception:
             raise ValueError(MATH_ERROR + ". The expression needs fix...")
-
 def inte(low: float, high: float, expression: str, var: str = "x"):
     from sympy import symbols, integrate, sympify
     x = symbols(var)
@@ -677,7 +641,7 @@ def sums(first: int, end: int, expression: str, var: str = "x"):
     else: # if isinstance(res, str):
         return evaluate_expression(str(res))
 
-def cm(first: int, end: int, expression: str, var: str = "x"):
+def muls(first: int, end: int, expression: str, var: str = "x"):
     from sympy import symbols, product, sympify
     i = symbols(var)
     expr = sympify(preprocess_expression(expression))
@@ -732,8 +696,8 @@ def calc(expr: str, **vars_values):
             "sqrt": sqrt,
             "ln": ln,
             "sums": sums,
-            "cm": cm,
-            "d_dy": d_dy,
+            "muls": muls,
+            "d_dx": d_dx,
             "inte": inte,
             "log": log,
             "nth_root": nth_root,
@@ -787,24 +751,93 @@ def rcl():
         variable = list(map(returning, map(evaluate_expression, f.read().splitlines())))
 rcl()
 # lst_of_cmd = ["[solve]", '[calc]', "[settings]"]
+dict_of_setting = {
+    "Angle unit": ANGLE_MODE,
+    "Statistics": 0, # Freq on or of
+    "Equation/ Function": 0, # Mở kết quả số phức
+    "Table": 1 # f(x) / f(x), g(x)
+    #"Language" # 1. English/ 2. Tiếng Việt
+}
+#lst_of_stop = ["stop", "off", "exit", "quit"]
+def stat_setting(choice: int = dict_of_setting["Statistics"]):
+    global dict_of_setting
+    dict_of_setting["Statistics"] = choice
+
+    # Lấy thư mục chứa file hiện tại
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # Nối đường dẫn tuyệt đối tới file muốn mở
+    file_path = os.path.join(BASE_DIR, "statistics.txt")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(f"{choice}")
+def eq_fu_settings(choice: int = dict_of_setting["Equation/ Function"]):
+
+    # Lấy thư mục chứa file hiện tại
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # Nối đường dẫn tuyệt đối tới file muốn mở
+    file_path = os.path.join(BASE_DIR, "equation_funcs.txt")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(f"{choice}")
+
+def table_settings(choice: int = dict_of_setting["Table"]):
+
+    # Lấy thư mục chứa file hiện tại
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # Nối đường dẫn tuyệt đối tới file muốn mở
+    file_path = os.path.join(BASE_DIR, "table.txt")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(f"{choice}")
+def stor_settings():
+    global ANGLE_MODE, dict_of_setting
+
+    # Lấy thư mục chứa file hiện tại
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # Nối đường dẫn tuyệt đối tới file muốn mở
+    file_path = os.path.join(BASE_DIR, "mode_angle.txt")
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        ANGLE_MODE = f.readline()
+        dict_of_setting["Angle unit"] = ANGLE_MODE
+
+    file_path = os.path.join(BASE_DIR, "statistics.txt")
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        dict_of_setting["Statistics"] = int(f.readline())
+
+    file_path = os.path.join(BASE_DIR, "equation_funcs.txt")
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        dict_of_setting["Equation/ Function"] = int(f.readline())
+
+    file_path = os.path.join(BASE_DIR, "table.txt")
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        dict_of_setting["Table"] = int(f.readline())
 #debug line
 #from time import sleep
 print("Set data")
 #sleep(1.5)
 print("Debugging...")
 res = []
-res.append(str(solve_eq("x**2+B", {"B": -1}))+"\n")
+res.append(str(solve_eq("x**2+B", B=1))+"\n")
 stor(x=sqrt(2)); 
 res.append(str(evaluate_expression("2x+1-3"))+"\n")
 res.append(str(calc("2A - 3", A=6))+"\n")
 res.append(str(returning(sqrt(2)))+"\n")
-res.append(str(d_dy("x^2 + 2x + 1", 9)) + "\n")
+res.append(str(d_dx("x^2 + 2x + 1", 9)) + "\n")
 res.append(str(inte(0, 4, "x^2 + 4")) + "\n")
 res.append(str(sums(0, 3, "comb(x, 3) * 1**x * 2**(3-x)")) + "\n")
-res.append(str(cm(1, 10, "x")) + "\n")
+res.append(str(muls(1, 10, "x")) + "\n")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(BASE_DIR, "run.txt")
 with open(file_path, "w", encoding="utf-8") as f:
     f.writelines(res)
 print("Done")
-os.system("cls" if os.name == "nt" else "clear") #
+#sleep(1.5)
+os.system('cls' if os.name == 'nt' else 'clear')  # Xóa màn hình mỗi lần cập nhật
