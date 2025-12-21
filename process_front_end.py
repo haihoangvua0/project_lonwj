@@ -2,10 +2,9 @@
 """ Backend module for FX-580 simulator (functions collected & refined) """
 import math
 from decimal import Decimal, getcontext
-#from polynomial_equations import *
-#from solving_equations import *
 import os
-#from base_N import *
+from fractions import Fraction
+from decimal import Decimal
 
 MATH_ERROR = "MATH ERROR"
 pi, e = math.pi, math.e
@@ -197,9 +196,6 @@ def atanh(x: float):
     v = math.atanh(x)
     return v
 # 4. Core helpers
-import math
-from fractions import Fraction
-from decimal import Decimal
 
 # ---------------------------------------------------------
 # Helpers
@@ -219,30 +215,11 @@ def is_scientific_notation(n: float) -> float:
         base = base.rstrip("0")
         return float(f"{base}e{exp}")
 
-
-def split_sqrt_basic(n: float, eps=1e-12, max_b=200):
-    """Tìm a, b sao cho n ≈ a*sqrt(b) với b square-free."""
-    if n < 0:
-        return None
-
-    for b in range(2, max_b + 1):
-        r = int(math.isqrt(b))
-        if r*r == b:
-            continue  # bỏ b bình phương
-
-        a = n / math.sqrt(b)
-        if abs(a*math.sqrt(b) - n) < eps:
-            frac = Fraction(a).limit_denominator()
-            return float(frac), b
-
-    return None
-
-
 # ---------------------------------------------------------
 # 5. Unified returning()
 # ---------------------------------------------------------
 
-def returning(n: int | float | Decimal | str,
+def returning(n: int | float | Decimal | complex,
               choice: str = "S",
               /):
               #app: bool = False):
@@ -262,12 +239,6 @@ def returning(n: int | float | Decimal | str,
     # ----------------------
     if isinstance(n, float) and (math.isnan(n) or math.isinf(n)):
         return float("inf")
-    #if isinstance(n, str):
-    #    #app = True # at all cost
-    #    if app:
-    #        return n
-    #    else:
-    #         return evaluate_expression(n, app=False)
 
     elif isinstance(n, (int, float)):
         # ----------------------
@@ -289,11 +260,15 @@ def returning(n: int | float | Decimal | str,
         # ----------------------
         if abs(n - round(n)) < 1e-12:
             return int(round(n))
+    elif isinstance(n, complex):
+        new_imag = returning(n.imag)
+        new_real = returning(n.real)
+        return complex(new_real, new_imag)
     # ----------------------
     # 6) Thử phân tích dạng a*sqrt(b)
     # ----------------------
     if check_irrational(n): 
-        new_n = f"{n:.12f}".rstrip("0").rstrip(".")
+        new_n = f"{n:.12f}".rstrip("0").rstrip(".")            
         actual1 = float(new_n)
         if abs(actual1 - round(actual1)) < 1e-20:
             return int(round(actual1))
@@ -334,9 +309,11 @@ def preprocess_expression(expr: str) -> str:
     expr = re.sub(r'\s+', '', expr)
 
     funcs = ["sqrt", "sin", "cos", "tan", "asin", "acos", "atan",
-             "log", "ln", "exp", "sigma_s", "muls", "integral", "nth_root"]
+             "log", "ln", "exp", "sigma_s", "muls", "integral", "nth_root", "pow", "abs"]
+    
     const = list(actual_val_const)
     funcs += const
+    #funcs += others
 
     # -------------------------------
     # 1) Protect scientific numbers
@@ -363,13 +340,14 @@ def preprocess_expression(expr: str) -> str:
     # number + variable (all letters except e, but e still allowed later)
     # Now we WANT e to be multiplied (because scientific notation was protected)
     expr = re.sub(r'(\d)([A-Za-z])', r'\1*\2', expr)
+    # variable + pi
+    expr = re.sub(r'([A-Za-z])(?=pi)', r'\1*', expr)
 
     # -------------------------------
     # 3) Restore scientific numbers
     # -------------------------------
     for i, val in enumerate(sci_tokens):
         expr = expr.replace(f"__SCI{i}__", val)
-
     return expr
 
 def evaluate_expression(expr: str, simplify_symbolic=True, /):
@@ -391,7 +369,10 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /):
         "e": e,
         "comb": comb,
         "factorial": factorial,
-        "perm": perm
+        "perm": perm, 
+        "pow": pow,
+        "abs": abs,
+        "j": 1j
     }
 
     avail_vars = {k: v for k, v in zip(names, variable)}
@@ -434,7 +415,7 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /):
     Ans = res
     return res
 
-def solve_eq(expr: str, var='x', *_, ask: bool = False, **vars_val):
+def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
         global A, B, C, D, E, F, x, y, z, M, actual_val_const, Ans
         from sympy import sympify, Eq, Symbol, solve
     #try:
@@ -492,7 +473,7 @@ def solve_eq(expr: str, var='x', *_, ask: bool = False, **vars_val):
                 re_f = float(re.evalf())
                 im_f = float(im.evalf())
         
-                if abs(im_f) < 1e-12:
+                if abs(im_f) < 1e-50:
                     # nghiệm thực
                     res.append(returning(re_f))
                 else:
@@ -507,7 +488,6 @@ def solve_eq(expr: str, var='x', *_, ask: bool = False, **vars_val):
         return MATH_ERROR
     #except Exception:
         #return MATH_ERROR
-
 
 # 7. Roots
 def exp(n: int | float):
@@ -525,7 +505,7 @@ def sieve_primes(limit: int):
             sieve[start: limit+1: step] = b'\x00' * ((limit - start)//step + 1)
     return [i for i, isprime in enumerate(sieve) if isprime]
 
-def fact(n: int, primes=None):
+def FACT(n: int, primes=None):
     """
     Phân tích n (n >= 1) thành các thừa số nguyên tố.
     Trả về list các tuple (prime, exponent) theo thứ tự tăng dần prime.
@@ -705,7 +685,10 @@ def calc(expr: str, **vars_values):
             "pi": pi,
             "e": e,
             "perm": perm,
-            "comb": comb
+            "comb": comb,
+            "j": 1j,
+            "pow": pow,
+            "abs": abs
         }
         avail_var |= vars_values
         stor(**avail_var)
@@ -825,14 +808,14 @@ print("Set data")
 #sleep(1.5)
 print("Debugging...")
 res = []
-res.append(str(solve_eq("x**2+B", B=1))+"\n")
+res.append(str(solve_eq("x**2+B", ask=True,B=1))+"\n")
 stor(x=sqrt(2)); 
 res.append(str(evaluate_expression("2x+1-3"))+"\n")
 res.append(str(calc("2A - 3", A=6))+"\n")
 res.append(str(returning(sqrt(2)))+"\n")
 res.append(str(d_dx("x^2 + 2x + 1", 9)) + "\n")
 res.append(str(inte(0, 4, "x^2 + 4")) + "\n")
-res.append(str(sums(0, 3, "comb(x, 3) * 1**x * 2**(3-x)")) + "\n")
+res.append(str(sums(0, float("inf"), "(4*(-1)**x)/(2*x+1)")) + "\n")
 res.append(str(muls(1, 10, "x")) + "\n")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(BASE_DIR, "run.txt")
