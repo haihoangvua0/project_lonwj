@@ -1,6 +1,6 @@
-#from decimal import Decimal, getcontext
-#getcontext().prec = 12  # độ chính xác toàn cục
-from process_front_end import *
+import process_front_end
+returning = process_front_end.returning
+
 def solve_equation_two(a1: int | float, b1: int | float, c1: int | float, 
                        a2: int | float, b2: int | float, c2: int | float, 
                        lang: int = 1) -> tuple[int | float, int | float] | str:
