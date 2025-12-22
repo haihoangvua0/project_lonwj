@@ -5,20 +5,47 @@ from decimal import Decimal, getcontext
 import os
 from fractions import Fraction
 from decimal import Decimal
+import cmath
 
+#from matrix import *
 MATH_ERROR = "MATH ERROR"
 pi, e = math.pi, math.e
 
 getcontext().prec = 50
 
-# Variable 
+app = False
+complex_choice = True
+def app_open(choice: int = 0):
+    global app
+    app = (choice == True)
+    # Lấy thư mục chứa file hiện tại
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # Nối đường dẫn tuyệt đối tới file muốn mở
+    file_path = os.path.join(BASE_DIR, "app_choice.txt")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(str(choice))
+app_open(0)
+def stor_cmplx(choice: int = 0):
+    global complex_choice
+
+    complex_choice = (choice == True)
+    # Lấy thư mục chứa file hiện tại
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # Nối đường dẫn tuyệt đối tới file muốn mở
+    file_path = os.path.join(BASE_DIR, "cmplx_choice.txt")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(str(choice))
+stor_cmplx(0)
+# Variable
 variable = [0 for _ in range(10)]
 A, B, C, D, E, F, x, y, z, M = variable
 names = ["A", "B", "C", "D", "E", "F", "x", "y", "z", "M"]
 Ans = 0
 #PreAns = 0
-
-app = False
 
 def stor(**var_input: int):
     global variable, A, B, C, D, E, F, x, y, z, M, names
@@ -132,6 +159,7 @@ def set_angle_mode(mode: str):
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(ANGLE_MODE)
+set_angle_mode("DEG")
 
 def _to_radian_if_needed(x: float):
     global ANGLE_MODE
@@ -227,7 +255,7 @@ def returning(n: int | float | Decimal | complex,
     Trả về số đã rút gọn.
     - choice="S": ưu tiên dạng Fraction.
     """
-
+    global complex_choice
     # ----------------------
     # 0) Decimal -> float
     # ----------------------
@@ -261,6 +289,8 @@ def returning(n: int | float | Decimal | complex,
         if abs(n - round(n)) < 1e-12:
             return int(round(n))
     elif isinstance(n, complex):
+        if complex_choice:
+            raise ValueError(MATH_ERROR)
         new_imag = returning(n.imag)
         new_real = returning(n.real)
         return complex(new_real, new_imag)
@@ -461,7 +491,7 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
         sol = solve(equation, symbol)
 
         if not sol:
-            return MATH_ERROR
+            return []
 
         # Chỉ trả nghiệm thực đầu tiên
         
@@ -485,12 +515,22 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
                     x_val = returning(evaluate_expression(str(s)))
                     stor(x=x_val)
                     return x_val
-        return MATH_ERROR
+        return []
     #except Exception:
         #return MATH_ERROR
 
 # 7. Roots
-def exp(n: int | float):
+def exp(n: int | float | Decimal | Fraction | complex):
+    global complex_choice, ANGLE_MODE
+    if isinstance(n, complex):
+        if not complex_choice:
+            raise ValueError(MATH_ERROR)
+        # Detach:
+        new_real_pow = math.exp(n.real)
+        x_ = n.imag
+        new_imag_pow = returning(math.cos(x_)) + returning(math.sin(x_))*1j
+        result = new_real_pow + new_imag_pow
+        return result
     return math.exp(n)
 
 # Hàm phân tích thừa số nguyên tố cho n lớn (n <= 10**10)
@@ -540,8 +580,15 @@ def FACT(n: int, primes=None):
         factors.append((remaining, 1))
     return factors
 
-def sqrt(n: int | float):
-    if n < 0: raise ValueError(MATH_ERROR)
+def sqrt(n: int | float | Decimal | Fraction | complex):
+    global complex_choice
+    if not complex_choice: raise ValueError(MATH_ERROR)
+    elif n < 0: 
+        real = abs(n)
+        real = returning(math.sqrt(real))
+        return real*1j
+    elif isinstance(n, complex):
+        return cmath.sqrt(n)
     return (math.sqrt(n))
 
 def nth_root(base: int | float, ex: int):
@@ -549,15 +596,19 @@ def nth_root(base: int | float, ex: int):
         raise ValueError(MATH_ERROR)
     if base < 0:
         if ex % 2 == 0:
-            raise ValueError(MATH_ERROR + ". The number must be over 0")
-    elif ex < 0:
+            if not complex_choice:
+                raise ValueError(MATH_ERROR + ". The number must be over 0")
+            base_ = abs(base)
+            base_ = nth_root(base_, ex)
+            return base_*1j
+    elif ex <= 0:
         raise ValueError(MATH_ERROR)
     result = float(pow(base, 1 / ex))
     return returning(result)
 
 # 8. Differentials + log
 def log(base: float, num: float | None = None):
-    # Trường hợp chỉ truyền 1 tham số → log(num) = log_base10(num)
+    # Trường hợp chỉ truyền 1 tham số -> log(num) = log_base10(num)
     if num is None:
         num = base      # lúc này "base" chính là số cần log
         base = 10       # mặc định logarithm cơ số 10
@@ -662,7 +713,7 @@ def calc(expr: str, **vars_values):
         }
         missing_vars = [str(v) for v in symbols if ((temp_ := str(v)) not in vars_values) and (temp_ not in avail_var)]
         if missing_vars:
-            return MATH_ERROR
+            raise ValueError(MATH_ERROR)
 
         # Đảm bảo các hàm lượng giác dùng đúng mode
         # Chuyển các hàm sin, cos, tan sang hàm đã xử lý mode
@@ -741,7 +792,7 @@ dict_of_setting = {
     "Table": 1 # f(x) / f(x), g(x)
     #"Language" # 1. English/ 2. Tiếng Việt
 }
-#lst_of_stop = ["stop", "off", "exit", "quit"]
+# lst_of_stop = ["stop", "off", "exit", "quit"]
 def stat_setting(choice: int = dict_of_setting["Statistics"]):
     global dict_of_setting
     dict_of_setting["Statistics"] = choice
@@ -754,8 +805,12 @@ def stat_setting(choice: int = dict_of_setting["Statistics"]):
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(f"{choice}")
-def eq_fu_settings(choice: int = dict_of_setting["Equation/ Function"]):
+stat_setting(0)
 
+def eq_fu_settings(choice: int = dict_of_setting["Equation/ Function"]):
+    global dict_of_setting
+
+    choice = dict_of_setting["Equation/ Function"]
     # Lấy thư mục chứa file hiện tại
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -764,6 +819,7 @@ def eq_fu_settings(choice: int = dict_of_setting["Equation/ Function"]):
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(f"{choice}")
+eq_fu_settings(0)
 
 def table_settings(choice: int = dict_of_setting["Table"]):
 
@@ -775,6 +831,7 @@ def table_settings(choice: int = dict_of_setting["Table"]):
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(f"{choice}")
+table_settings(1)
 def stor_settings():
     global ANGLE_MODE, dict_of_setting
 
@@ -802,25 +859,26 @@ def stor_settings():
 
     with open(file_path, "r", encoding="utf-8") as f:
         dict_of_setting["Table"] = int(f.readline())
-#debug line
+stor_settings()
+# debug line
 #from time import sleep
 print("Set data")
 #sleep(1.5)
 print("Debugging...")
-res = []
-res.append(str(solve_eq("x**2+B", ask=True,B=1))+"\n")
+res_ = []
+res_.append(str(solve_eq("x**2+B", ask=True, B=1))+"\n")
 stor(x=sqrt(2)); 
-res.append(str(evaluate_expression("2x+1-3"))+"\n")
-res.append(str(calc("2A - 3", A=6))+"\n")
-res.append(str(returning(sqrt(2)))+"\n")
-res.append(str(d_dx("x^2 + 2x + 1", 9)) + "\n")
-res.append(str(inte(0, 4, "x^2 + 4")) + "\n")
-res.append(str(sums(0, float("inf"), "(4*(-1)**x)/(2*x+1)")) + "\n")
-res.append(str(muls(1, 10, "x")) + "\n")
+res_.append(str(evaluate_expression("2x+1-3"))+"\n")
+res_.append(str(calc("2A - 3", A=6))+"\n")
+res_.append(str(returning(sqrt(2)))+"\n")
+res_.append(str(d_dx("x^2 + 2x + 1", 9)) + "\n")
+res_.append(str(inte(0, 4, "x^2 + 4")) + "\n")
+res_.append(str(sums(0, 10, "x**2")) + "\n")
+res_.append(str(muls(1, 10, "x")) + "\n")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(BASE_DIR, "run.txt")
 with open(file_path, "w", encoding="utf-8") as f:
-    f.writelines(res)
+    f.writelines(res_)
 print("Done")
 #sleep(1.5)
-os.system('cls' if os.name == 'nt' else 'clear')  # Xóa màn hình mỗi lần cập nhật
+os.system('cls' if os.name == 'nt' else 'clear')
