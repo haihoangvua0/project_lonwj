@@ -1,122 +1,114 @@
 from process_front_end import *
-import cmath
 # 2-power
 # Phương trình bậc nhất.
-  
+eq_fu_settings(1)
+cmplx = dict_of_setting["Equation/ Function"] 
+
 def solve_1(a: float, b: float):
-        return -b/a
+        if a == 0:
+                raise ValueError(MATH_ERROR)
+        return returning(-b/a)
   
 # Phương trình bậc 2
   
-def solve_2(a: int | float, b: int | float, c: int | float, choice: bool):
+def solve_2(a: int | float, b: int | float, c: int | float):
         if a == 0:
                 return solve_1(b, c)
         delta = b**2 - 4*a*c
+        solved = []
         if delta > 0:
-                return [returning((-b + sqrt(delta))/(2 * a)), returning((-b - sqrt(delta))/(2 * a))]
+                solved.append([returning((-b + sqrt(delta))/(2 * a)), returning((-b - sqrt(delta))/(2 * a))])
         elif delta == 0:
                 x = -b / (2*a)
-                return [returning(x)]
+                solved.extend([returning(x)])
         else:
-                if choice == True:
+                if cmplx == True:
                         real_part = -b / (2*a)
                         imag_part = math.sqrt(-delta) / (2*a)
                         x1 = complex(real_part, imag_part)
                         x2 = complex(real_part, -imag_part)
-                        return [x1, x2]
-  
-                elif choice == False:
-                        return "No Solution!!!"  
+                        solved.append([x1, x2])
+                else:
+                        solved.append("No solution.")
+        # Cực điểm (đỉnh):
+        designated_point = [returning(-b/2*a), returning(-delta/4*a)]
+        l_h = "Lowest Point" if a > 0 else "Highest Point"
+        solved.append((designated_point, l_h))
+        return solved
+
 # 3-power
-def solve_3(a: float, b: float, c: float, d: float, choice: bool):
-    if a == 0:
-        # Nếu a = 0 thì quay lại bậc 2
-        return solve_2(b, c, d, choice)
+def solve_3(a: int | float | Fraction,
+            b: int | float | Fraction,
+            c: int | float | Fraction,
+            d: int | float | Fraction
+):
+        global cmplx
+        if a == 0:
+                return solve_2(b, c, d)
+        expr = f"{a}*x**3+{b}*x**2+{c}*x+{d}"
+        res = solve_eq(expr, ask=True)
+        if not cmplx == False:
+                res = [i for i in res if not isinstance(i, complex)]
+                if not res:
+                        res.append("No solution(s)")
+        d_f = d_dx(expr)
+        delta_ = b**2-3*a*c
+        if delta_ <= 0:
+                res.append("No extreme(s)")
+                return res
+        else: # delta_ > 0
+                sols = solve_eq(d_f, ask=True)
+                o_res = [(tep := sols[0], calc(expr, x=tep)), (tep1 := sols[1], calc(expr, x=tep1))]
+                o_res.sort(key=lambda x: x[1])
+                extremes = [("Local min", o_res[0]),
+                             ("Local max", o_res[1])
+                ]
+                res += extremes
+                return res
 
-    # Chuyển về dạng thu gọn: x = t - b/(3a)
-    p = (3*a*c - b**2) / (3 * a**2)
-    q = (2*b**3 - 9*a*b*c + 27*a**2*d) / (27 * a**3)
-    delta = (q/2)**2 + (p/3)**3
-
-    # Căn bậc 3 an toàn cho cả số âm / phức
-    def cbrt(z):
-        if isinstance(z, complex):
-            return z ** (1/3)
-        return z ** (1/3) if z >= 0 else -(-z) ** (1/3)
-
-    # Tính nghiệm
-    if delta > 0:
-        # Một nghiệm thực, hai nghiệm phức
-        if choice:
-            u = cbrt(-q/2 + cmath.sqrt(delta))
-            v = cbrt(-q/2 - cmath.sqrt(delta))
-            t1 = u + v
-            t2 = -(u + v)/2 + (u - v)*cmath.sqrt(3)*1j/2
-            t3 = -(u + v)/2 - (u - v)*cmath.sqrt(3)*1j/2
-            roots = (t1 - b/(3*a), t2 - b/(3*a), t3 - b/(3*a))
-        else:
-            u = cbrt(-q/2 + math.sqrt(delta))
-            v = cbrt(-q/2 - math.sqrt(delta))
-            t1 = u + v
-            roots = (returning(t1 - b/(3*a)),)
-    elif abs(delta) < 1e-12:
-        # Ba nghiệm thực, có nghiệm kép
-        u = cbrt(-q/2)
-        x1 = 2*u - b/(3*a)
-        x2 = -u - b/(3*a)
-        roots = (returning(x1), returning(x2))
-    else:
-        # Ba nghiệm thực phân biệt
-        phi = math.acos(-q/(2*math.sqrt(-(p/3)**3)))
-        t1 = 2*math.sqrt(-p/3)*math.cos(phi/3)
-        t2 = 2*math.sqrt(-p/3)*math.cos((phi + 2*math.pi)/3)
-        t3 = 2*math.sqrt(-p/3)*math.cos((phi + 4*math.pi)/3)
-        roots = (returning(t1 - b/(3*a)), returning(t2 - b/(3*a)), returning(t3 - b/(3*a)))
-
-    return roots
-# 4-power
-def solve_4(a: int | float, b: int | float, c: int | float, d: int | float, f: int | float):
-        pass
+def solve_4(a: int | float | Fraction,
+            b: int | float | Fraction,
+            c: int | float | Fraction,
+            d: int | float | Fraction,
+            fr: int | float | Fraction
+):
+        if a == 0:
+                return solve_3(b, c, d, fr)
+        expr = f"{a}*x**4+{b}*x**3+{c}*x**2+{d}*x+{fr}"
+        res = solve_eq(expr, ask=True)
+        if not cmplx:
+                res = [i for i in res if not isinstance(i, complex)]
+                if not res:
+                        return "No solution"
+                return res
+        return res
 if __name__ == "__main__":
-                print("#=#=#=# Polynomial Equation tester #=#=#=#")
-                first_choice = int(input("Input degree?\nSelect 2 to 4\n").strip())
-        #try:
+        print("#=#=#=# Polynomial Equation tester #=#=#=#")
+        first_choice = int(input("Input degree?\nSelect 2 to 4\n").strip())
+        try:
                 if first_choice == 2:
-                        a, b, c = map(int, input("a b c\n").split())
-                        cmplx = int(input("Complex Result?\n1: On\n0: Off\n"))
-                        try:
-                                if cmplx == 1:
-                                        cmplx = True
-                                else:
-                                        cmplx = False
-                        except: cmplx = False
-                        result = solve_2(a, b, c, cmplx)
+                        a, b, c = map(evaluate_expression, input("a b c\n").split())
+                        result = solve_2(a, b, c)
                         print("Result: ", end=" ")
-                        if isinstance(result, str): print(result)
-                        else: print(*result[:2])
+                        if isinstance(result[0], str): print(result)
+                        else: print(*result)
                 elif first_choice == 3:
-                        a, b, c, d = map(int, input("a b c d\n").split())
-                        cmplx = int(input("Complex Result?\n1: On\n0: Off\n"))
-                        try:
-                                if cmplx == 1:
-                                        cmplx = True
-                                else:
-                                        cmplx = False
-                        except: cmplx = False
-                        result = solve_3(a, b, c, d, cmplx)
+                        inp = []
+                        print("Input a b c d:", sep="")
+                        while len(inp) < 4:
+                                inp.extend(map(int, input().split()))
+                        a, b, c, d = inp
+                        result = solve_3(a, b, c, d)
                         print("Result: ", end=" ")
                         if isinstance(result, str): print(result)
-                        else: print(*result[:3])
+                        else: print(*result)
                 elif first_choice == 4:
-                        #a, b, c, d, f = map(int, input("a b c").split())
-                        #cmplx = int(input("Complex Result?\n1: On\n0: Off"))
-                        #try:
-                        #        if cmplx == 1:
-                        #                cmplx = True
-                        #        else:
-                        #                cmplx = False
-                        #except: cmplx = False
-                        #print("Result: ", *solve(a, b, c, cmplx))
-                        print("In progess...")
-        #except:
-                #print("E@$#R!!!")
+                        inp = []
+                        print("Input a b c d e:", sep="")
+                        while len(inp) < 5:
+                                inp.extend(map(int, input().split()))
+                        a, b, c, d, fr = inp
+                        result = solve_4(a, b, c, d, fr)
+                        print("Result:", *result)
+        except:
+                print("E@R#R!!!")
