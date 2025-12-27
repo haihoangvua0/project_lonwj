@@ -10,6 +10,8 @@ import cmath
 #from matrix import *
 MATH_ERROR = "MATH ERROR"
 pi, e = math.pi, math.e
+gcd = math.gcd
+lcm = math.lcm
 
 getcontext().prec = 50
 
@@ -337,14 +339,19 @@ def preprocess_expression(expr: str) -> str:
     import re
     expr = expr.replace("^", "**") 
     expr = re.sub(r'\s+', '', expr)
-
+    # Bộ phận mũ...
+    expr = re.sub(
+        r'(\([^()]+\)|[A-Za-z0-9_.]+)\*\*(\([^()]+\)|[A-Za-z0-9_.]+)',
+        r'Pow(\1,\2)',
+        expr
+    )
     funcs = ["sqrt", "sin", "cos", "tan", "asin", "acos", "atan",
-             "log", "ln", "exp", "sigma_s", "muls", "integral", "nth_root", "pow", "abs"]
+             "log", "ln", "exp", "sigma_s", "muls", "integral", "nth_rt", 
+             "pow", "Pow", "abs"]
     
     const = list(actual_val_const)
     funcs += const
-    #funcs += others
-
+    
     # -------------------------------
     # 1) Protect scientific numbers
     # -------------------------------
@@ -400,9 +407,12 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /):
         "comb": comb,
         "factorial": factorial,
         "perm": perm, 
-        "pow": pow,
+        "pow": Pow,
+        "Pow": Pow,
         "abs": abs,
-        "j": 1j
+        "j": 1j,
+        "frac": Fraction,
+        "nth_rt": nth_root
     }
 
     avail_vars = {k: v for k, v in zip(names, variable)}
@@ -582,18 +592,35 @@ def FACT(n: int, primes=None):
 
 def sqrt(n: int | float | Decimal | Fraction | complex):
     global complex_choice
-    if not complex_choice: raise ValueError(MATH_ERROR)
-    elif n < 0: 
-        real = abs(n)
-        real = returning(math.sqrt(real))
-        return real*1j
-    elif isinstance(n, complex):
-        return cmath.sqrt(n)
-    return (math.sqrt(n))
+    if n < 0 or isinstance(n, complex):
+        if not complex_choice: raise ValueError(MATH_ERROR)
+        elif n < 0: 
+            real = abs(n)
+            real = returning(math.sqrt(real))
+            return real*1j
+        elif isinstance(n, complex):
+            return cmath.sqrt(n)
+    return returning(math.sqrt(n))
 
-def nth_root(base: int | float, ex: int):
-    if not isinstance(ex, int) or ex == 0:
+def cbrt(n: int | float | Decimal | Fraction | complex):
+    global complex_choice
+    if isinstance(n, complex):
+        if not complex_choice:
+            raise ValueError(MATH_ERROR)
+        return pow(n, 1/3)
+    res = n ** 1/3 if n >= 0 else -((-n) ** 1/3)
+    return returning(res)
+
+def nth_root(base: float | Fraction | Decimal | int, ex: float | Fraction | Decimal | int = 0):
+    global complex_choice
+    if not isinstance(ex, int):
         raise ValueError(MATH_ERROR)
+    if ex < 0:
+        raise ValueError(MATH_ERROR)
+    elif ex == 0:
+        if base == 0:
+            raise ValueError(MATH_ERROR)
+        return 1
     if base < 0:
         if ex % 2 == 0:
             if not complex_choice:
@@ -601,11 +628,38 @@ def nth_root(base: int | float, ex: int):
             base_ = abs(base)
             base_ = nth_root(base_, ex)
             return base_*1j
-    elif ex <= 0:
-        raise ValueError(MATH_ERROR)
+        else:
+            res = -((-base) ** (1/ex))
+            return returning(res)
     result = float(pow(base, 1 / ex))
     return returning(result)
 
+def Pow(base: int | float | Fraction | Decimal | complex,
+        exp: int | float | Fraction | Decimal | complex):
+    global complex_choice
+    if isinstance(exp, int):
+        return returning(pow(base, exp))
+    elif isinstance(exp, (float, Decimal, Fraction)):
+        frac = Fraction(*float.as_integer_ratio(exp)).limit_denominator()
+        if base < 0:
+            if frac.denominator % 2 == 0:
+                if not complex_choice:
+                    raise ValueError(MATH_ERROR)
+                base_ = abs(base)
+                res1 = pow(base_, exp)
+                return res1 * 1j
+            res = -pow(-base, exp)
+            return returning(res)
+        if base == 0:
+            if exp <= 0:
+                raise ValueError(MATH_ERROR)
+            return 0
+        #if base > 0:
+        result = float(pow(base, exp))
+        return returning(result)
+    else:
+        return pow(base, exp)
+            
 # 8. Differentials + log
 def log(base: float, num: float | None = None):
     # Trường hợp chỉ truyền 1 tham số -> log(num) = log_base10(num)
@@ -875,8 +929,8 @@ res_.append(str(d_dx("x^2 + 2x + 1", 9)) + "\n")
 res_.append(str(inte(0, 4, "x^2 + 4")) + "\n")
 res_.append(str(sums(0, 10, "x**2")) + "\n")
 res_.append(str(muls(1, 10, "x")) + "\n")
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-file_path = os.path.join(BASE_DIR, "run.txt")
+BASE_DIR_ = os.path.dirname(os.path.abspath(__file__))
+file_path = os.path.join(BASE_DIR_, "run.txt")
 with open(file_path, "w", encoding="utf-8") as f:
     f.writelines(res_)
 print("Done")
