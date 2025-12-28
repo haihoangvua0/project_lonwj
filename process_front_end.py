@@ -6,6 +6,11 @@ import os
 from fractions import Fraction
 from decimal import Decimal
 import cmath
+import random
+
+Randint = random.randint
+Rand_ = random.random()
+Rnd = round
 
 #from matrix import *
 MATH_ERROR = "MATH ERROR"
@@ -538,6 +543,9 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
         "gcd": gcd,
         "lcm": lcm,
         "j": 1j,
+        "RandInt": Randint,
+        "Rnd": Rnd,
+        "Ran#": Rand_
     }
     # Thay thế các biến đã lưu vào biểu thức
     local_dict = avail_var.copy()
