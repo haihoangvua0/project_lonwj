@@ -69,6 +69,11 @@ def stor(**var_input: int):
         for i in variable:
             f.write(f"{i}\n")
 
+a = {
+    "x": 0
+}
+stor(**a)
+del a
 
 # 1. Constants
 actual_val_const = {
@@ -337,55 +342,81 @@ def check_irrational(n: float) -> bool:
 # 6. Expression engine
 def preprocess_expression(expr: str) -> str:
     import re
-    expr = expr.replace("^", "**") 
+
+    expr = expr.replace("^", "**")
     expr = re.sub(r'\s+', '', expr)
-    # Bộ phận mũ...
+
+    # -------------------------------
+    # factorial (Casio-style)
+    # -------------------------------
+    while '!' in expr:
+        expr = re.sub(
+            r'(\([^()]+\)|[A-Za-z0-9_.]+)!',
+            r'factorial(\1)',
+            expr
+        )
+
+    # -------------------------------
+    # nCr / nPr
+    # -------------------------------
+    expr = re.sub(
+        r'(\([^()]+\)|[A-Za-z0-9_.]+)C(\([^()]+\)|[A-Za-z0-9_.]+)',
+        r'comb(\1,\2)',
+        expr
+    )
+    expr = re.sub(
+        r'(\([^()]+\)|[A-Za-z0-9_.]+)P(\([^()]+\)|[A-Za-z0-9_.]+)',
+        r'perm(\1,\2)',
+        expr
+    )
+
+    # -------------------------------
+    # power **
+    # -------------------------------
     expr = re.sub(
         r'(\([^()]+\)|[A-Za-z0-9_.]+)\*\*(\([^()]+\)|[A-Za-z0-9_.]+)',
         r'Pow(\1,\2)',
         expr
     )
-    funcs = ["sqrt", "sin", "cos", "tan", "asin", "acos", "atan",
-             "log", "ln", "exp", "sigma_s", "muls", "integral", "nth_rt", 
-             "pow", "Pow", "abs"]
-    
-    const = list(actual_val_const)
-    funcs += const
-    
+
     # -------------------------------
-    # 1) Protect scientific numbers
+    # protect scientific notation
     # -------------------------------
-    sci_pattern = re.compile(r'\d+(?:\.\d+)?[e][+-]?\d+')
+    sci_pattern = re.compile(r'\d+(?:\.\d+)?e[+-]?\d+')
     sci_tokens = []
-
-    expr = sci_pattern.sub(lambda m: f"__SCI{sci_tokens.append(m.group(0)) or len(sci_tokens)-1}__", expr)
+    expr = sci_pattern.sub(
+        lambda m: f"__SCI{sci_tokens.append(m.group(0)) or len(sci_tokens)-1}__",
+        expr
+    )
 
     # -------------------------------
-    # 2) Insert multipliers
+    # implicit multiplication
     # -------------------------------
+    funcs = [
+        "sqrt", "sin", "cos", "tan", "asin", "acos", "atan",
+        "log", "ln", "exp", "sigma_s", "muls", "integral",
+        "nth_rt", "pow", "Pow", "abs", "factorial", "gcd", "lcm"
+    ] + list(actual_val_const)
 
-    # number + function
     for f in funcs:
         expr = re.sub(rf'(\d)({f})', r'\1*\2', expr)
 
-    # number + (
     expr = re.sub(r'(\d)\(', r'\1*(', expr)
-
-    # ) then number or letter
     expr = re.sub(r'\)(\d|[A-Za-z])', r')*\1', expr)
-
-    # number + variable (all letters except e, but e still allowed later)
-    # Now we WANT e to be multiplied (because scientific notation was protected)
     expr = re.sub(r'(\d)([A-Za-z])', r'\1*\2', expr)
-    # variable + pi
     expr = re.sub(r'([A-Za-z])(?=pi)', r'\1*', expr)
 
     # -------------------------------
-    # 3) Restore scientific numbers
+    # restore scientific notation
     # -------------------------------
     for i, val in enumerate(sci_tokens):
         expr = expr.replace(f"__SCI{i}__", val)
+
     return expr
+
+# Central function map used for eval/sympify locals (keeps places consistent)
+# Define after helper functions so referenced callables exist.
+
 
 def evaluate_expression(expr: str, simplify_symbolic=True, /):
     global variable, A, B, C, D, E, F, x, y, z, M, names, Ans, app
@@ -401,7 +432,7 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /):
         "d_dx": d_dx,
         "inte": inte,
         "log": log,
-        "nth_root": nth_root,
+        #"nth_root": nth_root,
         "pi": pi,
         "e": e,
         "comb": comb,
@@ -412,7 +443,9 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /):
         "abs": abs,
         "j": 1j,
         "frac": Fraction,
-        "nth_rt": nth_root
+        "nth_rt": nth_root,
+        "gcd": gcd,
+        "lcm": lcm
     }
 
     avail_vars = {k: v for k, v in zip(names, variable)}
@@ -422,31 +455,27 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /):
     HAS_SYMPY = True
 
     if HAS_SYMPY:
-        try:
-            s = sympify(expr_clean, evaluate=True)
+        s = sympify(expr_clean, evaluate=True)
 
-            if simplify_symbolic:
-                s = sym_simplify(radsimp(s))
+        if simplify_symbolic:
+            s = sym_simplify(radsimp(s))
 
-            # Trường hợp trả về NUMBER thực, không ký hiệu
-            if s.is_number and not s.free_symbols:
-                return returning(float(s))
+        # Trường hợp trả về NUMBER thực, không ký hiệu
+        if s.is_number and not s.free_symbols:
+            return returning(float(s))
 
-            # --- SYMBOLIC + app mode ---
-            if app:
-                s_str = str(s)
+        # --- SYMBOLIC + app mode ---
+        if app:
+            s_str = str(s)
 
-                # nếu chứa sqrt và không chứa biến không hợp lệ
-                if "sqrt" in s_str:
-                    bad = s.free_symbols - set(avail_vars.keys())
-                    if not bad:
-                        return s_str
+            # nếu chứa sqrt và không chứa biến không hợp lệ
+            if "sqrt" in s_str:
+                bad = s.free_symbols - set(avail_vars.keys())
+                if not bad:
+                    return s_str
 
-            # Còn lại: trả về dạng float
-            s = str(s)
-
-        except Exception as es:
-            print(es)
+        # Còn lại: trả về dạng float
+        s = str(s)
 
     # Nếu SymPy fail -> eval
     safe |= new_
@@ -456,76 +485,101 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /):
     return res
 
 def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
-        global A, B, C, D, E, F, x, y, z, M, actual_val_const, Ans
-        from sympy import sympify, Eq, Symbol, solve
+    global A, B, C, D, E, F, x, y, z, M, actual_val_const, Ans
+    from sympy import sympify, Eq, Symbol, solve
     #try:
-        expr = expr.replace("^", "**")
+    expr = expr.replace("^", "**")
 
-        # Nếu không có dấu "=", coi là =0
-        if "=" not in expr:
-            expr = expr + "=0"
+    # Nếu không có dấu "=", coi là =0
+    if "=" not in expr:
+        expr = expr + "=0"
 
-        left, right = expr.split("=")
-        left = preprocess_expression(left); right = preprocess_expression(right)
-        # Lấy các biến trong biểu thức
-        #from sympy import sympify
-        symbols_left = list(sympify(left).free_symbols)
-        symbols_right = list(sympify(right).free_symbols)
-        #all_symbols = set(map(str, symbols_left + symbols_right))
+    left, right = expr.split("=")
+    left = preprocess_expression(left); right = preprocess_expression(right)
+    # Lấy các biến trong biểu thức
+    #from sympy import sympify
+    symbols_left = list(sympify(left).free_symbols)
+    symbols_right = list(sympify(right).free_symbols)
+    #all_symbols = set(map(str, symbols_left + symbols_right))
 
-        # Lấy giá trị biến đã lưu (A, B, C, ...)
-        avail_var = {
-            "A": A,
-            "B": B,
-            "C": C,
-            "D": D,
-            "E": E,
-            "F": F,
-            "y": y,
-            "z": z,
-            "M": M,
-            "Ans": Ans
-        }
+    # Lấy giá trị biến đã lưu (A, B, C, ...)
+    avail_var = {
+        "A": A,
+        "B": B,
+        "C": C,
+        "D": D,
+        "E": E,
+        "F": F,
+        "y": y,
+        "z": z,
+        "M": M,
+        "Ans": Ans,
+        "pi": pi,
+        "e": e,
+    }
+    FUNC_MAP = {
+        "sin": sin, "cos": cos, "tan": tan,
+        "asin": asin, "acos": acos, "atan": atan,
+        "sqrt": sqrt,
+        "ln": ln,
+        "sums": sums,
+        "muls": muls,
+        "d_dx": d_dx,
+        "inte": inte,
+        "log": log,
+        "comb": comb,
+        "factorial": factorial,
+        "perm": perm,
+        "pow": Pow,
+        "Pow": Pow,
+        "abs": abs,
+        "frac": Fraction,
+        "nth_rt": nth_root,
+        "gcd": gcd,
+        "lcm": lcm,
+        "j": 1j,
+    }
+    # Thay thế các biến đã lưu vào biểu thức
+    local_dict = avail_var.copy()
+    # Thêm các hằng số toán học nếu cần
+    local_dict.update(actual_val_const)
+    local_dict.update(vars_val)
+    # Inject centralized function map so sympify/eval has access to helpers
+    local_dict.update(FUNC_MAP)
+    stor(**vars_val)
+    left = sympify(left, locals=local_dict)
+    right = sympify(right, locals=local_dict)
+    equation = Eq(left, right)
 
-        # Thay thế các biến đã lưu vào biểu thức
-        local_dict = avail_var.copy()
-        # Thêm các hằng số toán học nếu cần
-        local_dict.update(actual_val_const)
-        local_dict.update(vars_val)
-        stor(**vars_val)
-        left = sympify(left, locals=local_dict)
-        right = sympify(right, locals=local_dict)
-        equation = Eq(left, right)
+    symbol = Symbol(var)
+    sol = solve(equation, symbol)
 
-        symbol = Symbol(var)
-        sol = solve(equation, symbol)
-
-        if not sol:
-            return []
-
-        # Chỉ trả nghiệm thực đầu tiên
-        
-        if ask:
-            res = []
-            for s in sol:
-                re, im = s.as_real_imag()
-        
-                re_f = float(re.evalf())
-                im_f = float(im.evalf())
-        
-                if abs(im_f) < 1e-50:
-                    # nghiệm thực
-                    res.append(returning(re_f))
-                else:
-                    # nghiệm phức
-                    res.append(complex(re_f, im_f))
-            return res    
-        for s in sol:
-            if s.is_real: 
-                    x_val = returning(evaluate_expression(str(s)))
-                    stor(x=x_val)
-                    return x_val
+    if not sol:
         return []
+
+    # Chỉ trả nghiệm thực đầu tiên
+    
+    if ask:
+        res = []
+        for s in sol:
+            re, im = s.as_real_imag()
+    
+            re_f = float(re.evalf())
+            im_f = float(im.evalf())
+    
+            if abs(im_f) < 1e-50:
+                # nghiệm thực
+                res.append(returning(re_f))
+            else:
+                # nghiệm phức
+                res.append(complex(re_f, im_f))
+        return res    
+    for s in sol:
+        if s.is_real: 
+                x_val = returning(evaluate_expression(str(s)))
+                stor(x=x_val)
+                return x_val
+    return []
     #except Exception:
         #return MATH_ERROR
 
@@ -634,12 +688,33 @@ def nth_root(base: float | Fraction | Decimal | int, ex: float | Fraction | Deci
     result = float(pow(base, 1 / ex))
     return returning(result)
 
+def pow_mod(base: int, exp: int, mod: int):
+    if mod == 1:
+        return 0
+    result = 1
+    base %= mod
+    while exp > 0:
+        if exp & 1:
+            result = (result * base) % mod
+        base = (base * base) % mod
+        exp >>= 1
+    return result
+
+
 def Pow(base: int | float | Fraction | Decimal | complex,
-        exp: int | float | Fraction | Decimal | complex):
+        exp: int | float | Fraction | Decimal | complex,
+        mod: int | float | Fraction | Decimal | complex | None = None):
+    # MOD only allowed for integer exponent
+    if mod is not None:
+        if not isinstance(exp, int):
+            raise TypeError("mod is only supported for integer exponent")
+        if not isinstance(base, int):
+            base = int(base)
+        return pow_mod(base, exp, mod)
     global complex_choice
     if isinstance(exp, int):
         return returning(pow(base, exp))
-    elif isinstance(exp, (float, Decimal, Fraction)):
+    elif isinstance(exp, (float, Decimal)):
         frac = Fraction(*float.as_integer_ratio(exp)).limit_denominator()
         if base < 0:
             if frac.denominator % 2 == 0:
@@ -659,7 +734,6 @@ def Pow(base: int | float | Fraction | Decimal | complex,
         return returning(result)
     else:
         return pow(base, exp)
-            
 # 8. Differentials + log
 def log(base: float, num: float | None = None):
     # Trường hợp chỉ truyền 1 tham số -> log(num) = log_base10(num)
@@ -779,21 +853,26 @@ def calc(expr: str, **vars_values):
             "acos": acos,
             "atan": atan,
             "sqrt": sqrt,
+            "cbrt": cbrt,
             "ln": ln,
             "sums": sums,
             "muls": muls,
             "d_dx": d_dx,
             "inte": inte,
             "log": log,
-            "nth_root": nth_root,
-            "returning": returning,
+            "nth_rt": nth_root,
+            "factorial": factorial,
             "pi": pi,
             "e": e,
             "perm": perm,
             "comb": comb,
             "j": 1j,
-            "pow": pow,
-            "abs": abs
+            "pow": Pow,
+            "Pow": Pow,
+            "abs": abs,
+            "gcd": gcd,
+            "lcm": lcm,
+            "frac": Fraction
         }
         avail_var |= vars_values
         stor(**avail_var)
@@ -841,15 +920,15 @@ rcl()
 # lst_of_cmd = ["[solve]", '[calc]', "[settings]"]
 dict_of_setting = {
     "Angle unit": ANGLE_MODE,
-    "Statistics": 0, # Freq on or of
-    "Equation/ Function": 0, # Mở kết quả số phức
+    "Statistics": False, # Freq on or of
+    "Equation/ Function": True, # Mở kết quả số phức
     "Table": 1 # f(x) / f(x), g(x)
     #"Language" # 1. English/ 2. Tiếng Việt
 }
 # lst_of_stop = ["stop", "off", "exit", "quit"]
-def stat_setting(choice: int = dict_of_setting["Statistics"]):
+def stat_setting(choice: int = int(dict_of_setting["Statistics"])):
     global dict_of_setting
-    dict_of_setting["Statistics"] = choice
+    dict_of_setting["Statistics"] = (choice == True)
 
     # Lấy thư mục chứa file hiện tại
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -861,10 +940,10 @@ def stat_setting(choice: int = dict_of_setting["Statistics"]):
         f.write(f"{choice}")
 stat_setting(0)
 
-def eq_fu_settings(choice: int = dict_of_setting["Equation/ Function"]):
+def eq_fu_settings(choice: int = int(dict_of_setting["Equation/ Function"])):
     global dict_of_setting
 
-    choice = dict_of_setting["Equation/ Function"]
+    dict_of_setting["Equation/ Function"] = (choice == True)
     # Lấy thư mục chứa file hiện tại
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -936,3 +1015,4 @@ with open(file_path, "w", encoding="utf-8") as f:
 print("Done")
 #sleep(1.5)
 os.system('cls' if os.name == 'nt' else 'clear')
+del res_
