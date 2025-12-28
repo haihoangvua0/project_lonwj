@@ -1,6 +1,15 @@
 import tkinter as tk  
 from process_front_end import *
-        
+
+COLOR_NORMAL = "#f0f0f0"
+COLOR_SHIFT = "#ffeeba"   # vàng nhạt
+COLOR_ALPHA = "#ee8fff"   # hồng nhạt
+
+TEXT_NORMAL = "black"
+TEXT_ACTIVE = "#d39e00"   # vàng chữ
+TEXT_ALPHA = "#c2185b"    # hồng chữ
+
+app_open(1)
 class Calculator_fx:  
         #global SHIFT_MODE, ALPHA_MODE, CALC_MODE, SOLVE_MODE
         def __init__(self):  
@@ -51,7 +60,7 @@ class Calculator_fx:
                         ["", "", "", "", ""],
                         ["", "", "", "gcd", "lcm"],
                         ["", "", "", "int", ""],
-                        ["", "randint", "e", "", ""]
+                        ["", "RandInt", "e", "", ""]
                 ]
                 self.base_n = ["DEC", "BIN", "HEX", "OCT"]
                 # Dựng máy.
@@ -96,11 +105,35 @@ class Calculator_fx:
                 elif value == "ON":
                         self.inputs.delete(0, tk.END)
                         self.output.delete(0, tk.END)
-                        self.history[-1][0] = ""
+                        #self.history[-1][0] = ""
 
         def on_press2(self, value):
                 """Cho 4 nút điều hướng"""
-                pass
+                self.inputs.focus_set()
+                pos = self.inputs.index(tk.INSERT)
+                text = self.inputs.get()
+
+                if value == "<-":
+                        if pos > 0:
+                                self.inputs.icursor(pos - 1)
+                        elif pos == 0 and not self.inputs.get(): pass
+
+                elif value == "->":
+                        if pos < len(text):
+                                self.inputs.icursor(pos + 1)
+
+                elif value == "up":
+                        if self.history and not self.inputs.get():
+                                expr, res, flag = self.history[-1]
+                                if flag:
+                                        self.inputs.delete(0, tk.END)
+                                        self.inputs.insert(0, expr)
+                                        self.output.delete(0, tk.END)
+                                        self.output.insert(0, res)
+
+                elif value == "down":
+                        # Sau này mở rộng replay nhiều bước
+                        pass
         def on_press3(self, value):
                 """Cho bảng số hàm (frac,...)"""
                 self.inputs.focus_set()
@@ -108,9 +141,11 @@ class Calculator_fx:
                 if value in ["^-1", "^", "^2", "^3"]:
                         self.inputs.insert(pos, value)
                         self.inputs.icursor(pos)
+                        self.output.delete(0, tk.END)
                 elif value in ([",", "_"] + names):
                         self.inputs.insert(pos, value)
                         self.inputs.icursor(pos + 1)
+                        self.output.delete(0, tk.END)
                 elif value == "(":
                         self.inputs.insert(pos, "()")
                         self.inputs.icursor(pos + 1)
@@ -121,15 +156,18 @@ class Calculator_fx:
                         else:
                                 self.inputs.insert(pos, ")")
                                 self.inputs.icursor(pos + 1)
+                        self.output.delete(0, tk.END)
                 elif value == "j":
                         if complex_choice:
                                 self.inputs.insert(pos, "*1j")
                                 self.inputs.icursor(pos + 3)
+                                self.output.delete(0, tk.END)
                 elif value in ["inte", "frac", "sqrt", "log", "ln", "sin", "cos", "tan",
                                 "d_dx", "sums", "muls"]:
                         text = value+"()"
                         self.inputs.insert(pos, text)
                         self.inputs.icursor(pos + len(text) - 1)
+                        self.output.delete(0, tk.END)
                 elif value == "OPTN":
                         pass
                 elif value == "CALC":
