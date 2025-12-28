@@ -1,5 +1,10 @@
+#from decimal import Decimal, getcontext
+#getcontext().prec = 12  # độ chính xác toàn cục
 import process_front_end
+import matrix
 returning = process_front_end.returning
+det = matrix.Det
+Matrix = matrix.Matrix
 
 def solve_equation_two(a1: int | float, b1: int | float, c1: int | float, 
                        a2: int | float, b2: int | float, c2: int | float, 
@@ -38,6 +43,56 @@ def solve_equation_three(a1: int | float, b1: int | float, c1: int | float, k1: 
         y = returning(y)
         z = returning(z)
         return (x, y, z)
+
+def solve_equation_four(a1: int | float, b1: int | float, c1: int | float, d1: int | float, k1: int | float,
+                        a2: int | float, b2: int | float, c2: int | float, d2: int | float, k2: int | float,
+                        a3: int | float, b3: int | float, c3: int | float, d3: int | float, k3: int | float,
+                        a4: int | float, b4: int | float, c4: int | float, d4: int | float, k4: int | float):
+        A = Matrix([
+                [a1, b1, c1, d1],
+                [a2, b2, c2, d2],
+                [a3, b3, c3, d3],
+                [a4, b4, c4, d4]
+        ])
+        A1 = Matrix([
+                [k1, b1, c1, d1],
+                [k2, b2, c2, d2],
+                [k3, b3, c3, d3],
+                [k4, b4, c4, d4]
+        ])
+        A2 = Matrix([
+                [a1, k1, c1, d1],
+                [a2, k2, c2, d2],
+                [a3, k3, c3, d3],
+                [a4, k4, c4, d4]
+        ])
+        A3 = Matrix([
+                [a1, b1, k1, d1],
+                [a2, b2, k2, d2],
+                [a3, b3, k3, d3],
+                [a4, b4, k4, d4]
+        ])
+        A4 = Matrix([
+                [a1, b1, c1, k1],
+                [a2, b2, c2, k2],
+                [a3, b3, c3, k3],
+                [a4, b4, c4, k4]
+        ])
+        D = det(A)
+        D1 = det(A1)
+        D2 = det(A2)
+        D3 = det(A3)
+        D4 = det(A4)
+        if D == 0:
+                if D1 == D2 == D3 == D4 == 0:
+                        return "Every Real Solution"
+                else:
+                        return "No solution!!!"
+        x = returning(D1 / D)
+        y = returning(D2 / D)
+        z = returning(D3 / D)
+        t = returning(D4 / D)
+        return (x, y, z, t)
 # list_of_exception = ["No solution!!!", "Vô nghiệm", "Every Real Solution", "Vô số nghiệm"]
 
 #--------------input-output--------------#
