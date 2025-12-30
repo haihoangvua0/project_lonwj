@@ -6,11 +6,6 @@ import os
 from fractions import Fraction
 from decimal import Decimal
 import cmath
-import random
-
-Randint = random.randint
-Rand_ = random.random()
-Rnd = round
 
 #from matrix import *
 MATH_ERROR = "MATH ERROR"
@@ -303,8 +298,8 @@ def returning(n: int | float | Decimal | complex,
     elif isinstance(n, complex):
         if complex_choice:
             raise ValueError(MATH_ERROR)
-        new_imag = returning(n.imag)
-        new_real = returning(n.real)
+        new_imag = returning(n.imag, "D")
+        new_real = returning(n.real, "D")
         return complex(new_real, new_imag)
     # ----------------------
     # 6) Thử phân tích dạng a*sqrt(b)
@@ -344,13 +339,48 @@ def check_irrational(n: float) -> bool:
     except Exception:
         return True
 
+def Pol(x, y, deg=True):
+    import math
+    r = math.hypot(x, y)
+    theta = math.degrees(math.atan2(y, x)) if deg else math.atan2(y, x)
+    return r, theta
+def Rec(r, theta, deg=True):
+    import math
+    if deg:
+        theta = math.radians(theta)
+    x = r * math.cos(theta)
+    y = r * math.sin(theta)
+    return x, y
+
+class modulo:
+    def __init__(self, a, b):
+        if b == 0 or isinstance(b, complex):
+            raise ValueError(MATH_ERROR)
+        self.res = (a / b)   # truncate
+        if a >= 0:
+            self.res = int(self.res)
+            self.mod = a - self.res * b
+        else: self.mod = None
+
+    def __repr__(self):
+        return str(returning(self.res))
+
+    def __str__(self):
+        return f"{self.res}, R={self.mod}" \
+                if self.mod is not None \
+                else f"{self.res}"
+
 # 6. Expression engine
 def preprocess_expression(expr: str) -> str:
     import re
 
     expr = expr.replace("^", "**")
     expr = re.sub(r'\s+', '', expr)
+    
+    pattern = re.compile(r'\|([^|]+)\|')
 
+    while pattern.search(expr):
+        expr = pattern.sub(r'abs(\1)', expr)
     # -------------------------------
     # factorial (Casio-style)
     # -------------------------------
@@ -360,7 +390,13 @@ def preprocess_expression(expr: str) -> str:
             r'factorial(\1)',
             expr
         )
-
+    # (biểu thức)%  ->  (biểu thức)/100
+    while "%" in expr:
+        expr = re.sub(
+            r'(\([^()]+\)|[A-Za-z0-9_.]+)%',
+            r'(\1)/100',
+            expr
+        )
     # -------------------------------
     # nCr / nPr
     # -------------------------------
@@ -437,7 +473,6 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /):
         "d_dx": d_dx,
         "inte": inte,
         "log": log,
-        #"nth_root": nth_root,
         "pi": pi,
         "e": e,
         "comb": comb,
@@ -450,7 +485,14 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /):
         "frac": Fraction,
         "nth_rt": nth_root,
         "gcd": gcd,
-        "lcm": lcm
+        "lcm": lcm,
+        "Ran#": Ran_,
+        "RandInt": Randint,
+        "Int": int,
+        "Rnd": Rnd,
+        "Rec": Rec,
+        "Pol": Pol,
+        "modulo": modulo
     }
 
     avail_vars = {k: v for k, v in zip(names, variable)}
@@ -518,9 +560,6 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
         "y": y,
         "z": z,
         "M": M,
-        "Ans": Ans,
-        "pi": pi,
-        "e": e,
     }
     FUNC_MAP = {
         "sin": sin, "cos": cos, "tan": tan,
@@ -532,20 +571,26 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
         "d_dx": d_dx,
         "inte": inte,
         "log": log,
+        "pi": pi,
+        "e": e,
         "comb": comb,
         "factorial": factorial,
-        "perm": perm,
+        "perm": perm, 
         "pow": Pow,
         "Pow": Pow,
         "abs": abs,
+        "j": 1j,
         "frac": Fraction,
         "nth_rt": nth_root,
         "gcd": gcd,
         "lcm": lcm,
-        "j": 1j,
+        "Ran#": Ran_,
         "RandInt": Randint,
+        "Int": int,
         "Rnd": Rnd,
-        "Ran#": Rand_
+        "Rec": Rec,
+        "Pol": Pol,
+        "modulo": modulo
     }
     # Thay thế các biến đã lưu vào biểu thức
     local_dict = avail_var.copy()
@@ -566,15 +611,15 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
         return []
 
     # Chỉ trả nghiệm thực đầu tiên
-    
+
     if ask:
         res = []
         for s in sol:
             re, im = s.as_real_imag()
-    
+
             re_f = float(re.evalf())
             im_f = float(im.evalf())
-    
+
             if abs(im_f) < 1e-50:
                 # nghiệm thực
                 res.append(returning(re_f))
@@ -822,8 +867,6 @@ def muls(first: int, end: int, expression: str, var: str = "x"):
 def calc(expr: str, **vars_values):
     from sympy import sympify
     expr = preprocess_expression(expr)
-    # Biến đổi ^ thành ** cho hợp cú pháp Python
-    expr = expr.replace("^", "**")
 
     # Tách các biến từ chuỗi
     symbols = list(sympify(expr).free_symbols)
@@ -854,33 +897,35 @@ def calc(expr: str, **vars_values):
         # Đảm bảo các hàm lượng giác dùng đúng mode
         # Chuyển các hàm sin, cos, tan sang hàm đã xử lý mode
         local_dict = {
-            "sin": sin,
-            "cos": cos,
-            "tan": tan,
-            "asin": asin,
-            "acos": acos,
-            "atan": atan,
+            "sin": sin, "cos": cos, "tan": tan,
+            "asin": asin, "acos": acos, "atan": atan,
             "sqrt": sqrt,
-            "cbrt": cbrt,
             "ln": ln,
             "sums": sums,
             "muls": muls,
             "d_dx": d_dx,
             "inte": inte,
             "log": log,
-            "nth_rt": nth_root,
-            "factorial": factorial,
             "pi": pi,
             "e": e,
-            "perm": perm,
             "comb": comb,
-            "j": 1j,
+            "factorial": factorial,
+            "perm": perm, 
             "pow": Pow,
             "Pow": Pow,
             "abs": abs,
+            "j": 1j,
+            "frac": Fraction,
+            "nth_rt": nth_root,
             "gcd": gcd,
             "lcm": lcm,
-            "frac": Fraction
+            "Ran#": Ran_,
+            "RandInt": Randint,
+            "Int": int,
+            "Rnd": Rnd,
+            "Rec": Rec,
+            "Pol": Pol,
+            "modulo": modulo
         }
         avail_var |= vars_values
         stor(**avail_var)
@@ -1010,6 +1055,7 @@ res_ = []
 res_.append(str(solve_eq("x**2+B", ask=True, B=1))+"\n")
 stor(x=sqrt(2)); 
 res_.append(str(evaluate_expression("2x+1-3"))+"\n")
+res_.append(str(Ans) + "\n")
 res_.append(str(calc("2A - 3", A=6))+"\n")
 res_.append(str(returning(sqrt(2)))+"\n")
 res_.append(str(d_dx("x^2 + 2x + 1", 9)) + "\n")
@@ -1023,4 +1069,5 @@ with open(file_path, "w", encoding="utf-8") as f:
 print("Done")
 #sleep(1.5)
 os.system('cls' if os.name == 'nt' else 'clear')
-del res_
+del res_;
+Ans = 0
