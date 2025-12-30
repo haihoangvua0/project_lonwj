@@ -1,13 +1,11 @@
 import tkinter as tk  
 import process_front_end as pfe
-
-#COLOR_NORMAL = "#f0f0f0"
-#COLOR_SHIFT = "#ffeeba"   # vàng nhạt
-#COLOR_ALPHA = "#ee8fff"   # hồng nhạt
+returning = pfe.returning
+MATH_ERROR = pfe.MATH_ERROR
 
 TEXT_NORMAL = "black"
 TEXT_ACTIVE = "#d39e00"   # vàng chữ
-TEXT_ALPHA = "#c2185b"    # hồng chữ
+TEXT_ALPHA = "#db035a"    # hồng chữ
 
 pfe.app_open(1)
 SMART_TOKENS = [
@@ -202,7 +200,7 @@ class Calculator_fx:
                                 self.inputs.icursor(pos + 1)
                         self.output.delete(0, tk.END)
                 elif value == "j":
-                        if complex_choice:
+                        if pfe.complex_choice:
                                 expr = self.inputs.get()
                                 if pos == 0 and len(expr) == 0: pass
                                 elif 0 < pos < len(expr) and expr[pos-1] in ["+", "-", "*", "/", "("]:
@@ -224,7 +222,7 @@ class Calculator_fx:
                 elif value == "CALC":
                         expr = self.inputs.get()
                         free_symbol = []
-                        for i in names:
+                        for i in pfe.names:
                                 if i in expr:
                                         free_symbol.append(i)
                         if free_symbol:
@@ -239,7 +237,7 @@ class Calculator_fx:
                                 self.inputs.insert(0, f"{free_symbol[0]}=")
                         else:
                                 try:
-                                        res = evaluate_expression(expr)
+                                        res = pfe.evaluate_expression(expr)
                                         self.output.delete(0, tk.END)
                                         self.output.insert(0, str(res))
                                 except:
@@ -247,7 +245,7 @@ class Calculator_fx:
                                         self.output.insert(0, MATH_ERROR)
                 elif value == "S<=>D":
                         expr = self.inputs.get()
-                        res = evaluate_expression(expr)
+                        res = pfe.evaluate_expression(expr)
                         self.temp_value = res
                         self.output.delete(0, tk.END)
                         if self.regulation == "S":
@@ -306,7 +304,7 @@ class Calculator_fx:
                         else:
                                 try:
                                         current_var = self.calc_vars[self.calc_index]
-                                        val = evaluate_expression(self.inputs.get().split("=")[1])
+                                        val = pfe.evaluate_expression(self.inputs.get().split("=")[1])
                                         self.calc_values[current_var] = val
 
                                         self.calc_index += 1
