@@ -6,6 +6,11 @@ import os
 from fractions import Fraction
 from decimal import Decimal
 import cmath
+import random
+
+Randint = random.randint
+Ran_ = random.random
+Rnd = round
 
 #from matrix import *
 MATH_ERROR = "MATH ERROR"
@@ -367,8 +372,8 @@ class modulo:
 
     def __str__(self):
         return f"{self.res}, R={self.mod}" \
-                if self.mod is not None \
-                else f"{self.res}"
+               if self.mod is not None \
+               else f"{self.res}"
 
 # 6. Expression engine
 def preprocess_expression(expr: str) -> str:
@@ -397,6 +402,12 @@ def preprocess_expression(expr: str) -> str:
             r'(\1)/100',
             expr
         )
+    # Chia lấy dư và lấy nguyên ([mod])
+    expr = re.sub(
+        r'(\([^()]+\)|[A-Za-z0-9_.]+)\[mod\](\([^()]+\)|[A-Za-z0-9_.]+)',
+        r'modulo(\1,\2)',
+        expr
+    )
     # -------------------------------
     # nCr / nPr
     # -------------------------------
