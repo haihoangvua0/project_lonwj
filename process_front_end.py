@@ -181,6 +181,12 @@ def _to_radian_if_needed(x: float):
         return x * math.pi / 200
     return x
 
+def convert_deg(x: int | float | Fraction | Decimal):
+    if ANGLE_MODE == "DEG":
+        return math.degrees(x)
+    if ANGLE_MODE == "GRA":
+        return x * 200 / pi
+    return x   # RAD
 # 3. Trig functions (Casio-compatible) + Hypebolic Funcs
 def sin(x: float): return math.sin(_to_radian_if_needed(x))
 def cos(x: float): return math.cos(_to_radian_if_needed(x))
@@ -192,27 +198,15 @@ def tan(x: float):
 
 def asin(x: float):
     v = math.asin(x)
-    if ANGLE_MODE == "DEG":
-        return math.degrees(v)
-    if ANGLE_MODE == "GRA":
-        return v * 200 / math.pi
-    return v   # RAD
+    return convert_deg(v)   # RAD
 
 def acos(x: float):
     v = math.acos(x)
-    if ANGLE_MODE == "DEG":
-        return math.degrees(v)
-    if ANGLE_MODE == "GRA":
-        return v * 200 / math.pi
-    return v   # RAD
+    return convert_deg(v)
 
 def atan(x: float):
     v = math.atan(x)
-    if ANGLE_MODE == "DEG":
-        return math.degrees(v)
-    if ANGLE_MODE == "GRA":
-        return v * 200 / math.pi
-    return v   # RAD
+    return convert_deg(v)
 
 def sinh(x: float):
     return math.sinh(x)
@@ -344,36 +338,31 @@ def check_irrational(n: float) -> bool:
     except Exception:
         return True
 
-def Pol(x, y, deg=True):
+# ======================
+# Chia lấy dư và hệ toạ độ Đề-các
+def Pol(x: int | float | Fraction | Decimal, y: int | Fraction | float | Decimal):
     import math
     r = math.hypot(x, y)
-    theta = math.degrees(math.atan2(y, x)) if deg else math.atan2(y, x)
+    theta = convert_deg(math.atan2(y, x))
     return r, theta
-def Rec(r, theta, deg=True):
+
+def Rec(r: int | float | Fraction | Decimal, theta: int | float | Fraction | Decimal):
     import math
-    if deg:
-        theta = math.radians(theta)
+    theta = _to_radian_if_needed(theta)
     x = r * math.cos(theta)
     y = r * math.sin(theta)
     return x, y
 
-class modulo:
-    def __init__(self, a, b):
-        if b == 0 or isinstance(b, complex):
-            raise ValueError(MATH_ERROR)
-        self.res = (a / b)   # truncate
-        if a >= 0:
-            self.res = int(self.res)
-            self.mod = a - self.res * b
-        else: self.mod = None
-
-    def __repr__(self):
-        return str(returning(self.res))
-
-    def __str__(self):
-        return f"{self.res}, R={self.mod}" \
-               if self.mod is not None \
-               else f"{self.res}"
+def modulo(a: int, b: int, /, ask: bool = False):
+    if not b != 0:
+        raise ValueError(MATH_ERROR)
+    res = a // b
+    if a < 0 or b < 0:
+        return returning(res)
+    remain = a - res * b
+    if ask:
+        return res, remain
+    return res
 
 # 6. Expression engine
 def preprocess_expression(expr: str) -> str:
@@ -403,11 +392,23 @@ def preprocess_expression(expr: str) -> str:
             expr
         )
     # Chia lấy dư và lấy nguyên ([mod])
-    expr = re.sub(
+    # PURE mod: chỉ có a[mod]b
+    pure_mod = re.fullmatch(
         r'(\([^()]+\)|[A-Za-z0-9_.]+)\[mod\](\([^()]+\)|[A-Za-z0-9_.]+)',
-        r'modulo(\1,\2)',
         expr
     )
+    if pure_mod:
+        a, b = pure_mod.groups()
+        return f"modulo({a},{b},ask=True)"
+
+    mod_pattern = re.compile(r'(\([^()]+\)|[A-Za-z0-9_.]+)\[mod\](\([^()]+\)|[A-Za-z0-9_.]+)')
+    # mod trong biểu thức
+    while mod_pattern.search(expr):
+        expr = mod_pattern.sub(
+            r'modulo(\1,\2)',
+            expr
+        )
+
     # -------------------------------
     # nCr / nPr
     # -------------------------------
@@ -468,7 +469,6 @@ def preprocess_expression(expr: str) -> str:
 
 # Central function map used for eval/sympify locals (keeps places consistent)
 # Define after helper functions so referenced callables exist.
-
 
 def evaluate_expression(expr: str, simplify_symbolic=True, /):
     global variable, A, B, C, D, E, F, x, y, z, M, names, Ans, app
