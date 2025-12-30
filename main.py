@@ -1,5 +1,5 @@
 import tkinter as tk  
-from process_front_end import *
+import process_front_end as pfe
 
 #COLOR_NORMAL = "#f0f0f0"
 #COLOR_SHIFT = "#ffeeba"   # vàng nhạt
@@ -9,7 +9,7 @@ TEXT_NORMAL = "black"
 TEXT_ACTIVE = "#d39e00"   # vàng chữ
 TEXT_ALPHA = "#c2185b"    # hồng chữ
 
-app_open(1)
+pfe.app_open(1)
 SMART_TOKENS = [
         "sin(", "cos(", "tan(",
         "log(", "ln(", "sqrt(",
@@ -17,9 +17,9 @@ SMART_TOKENS = [
         "d_dx(", "sums(", "muls(",
         "*10^", "Int(", "Pol(", "Rec(",
         "RandInt(", "pi", "Rnd(", "Ran#",
-        
+        "*1j", "^", "^2", "^3", "^-1", "10^"
 ]
-class Calculator_fx:  
+class Calculator_fx:
         #global SHIFT_MODE, ALPHA_MODE, CALC_MODE, SOLVE_MODE
         def __init__(self):  
                 self.win = tk.Tk()  
@@ -33,6 +33,7 @@ class Calculator_fx:
                 self.calc_ing = False
                 self.solve_mode = False
                 self.stor_mode = False
+                self.finish_eval = False
                 self.history = [
                         ("", "", False)
                 ] # ("", "", True) True -> có thể mở lại lịch sử... False -> tắt chế độ xem lại lịch sử
@@ -99,14 +100,10 @@ class Calculator_fx:
         def on_press1(self, value):
                 if value == "SHIFT":
                         self.shift = not self.shift
-                        self.main_color = TEXT_ACTIVE if self.shift else TEXT_NORMAL
-                        self.extra_color = TEXT_ACTIVE if self.shift else TEXT_NORMAL
                         self.alpha = False
             
                 elif value == "ALPHA":
                         self.alpha = not self.alpha
-                        self.main_color = TEXT_ALPHA if self.alpha else TEXT_NORMAL
-                        self.main_color = TEXT_ALPHA if self.alpha else TEXT_NORMAL
                         self.shift = False
             
                 elif value == "MODE":
@@ -132,25 +129,41 @@ class Calculator_fx:
                 text = self.inputs.get()
                 if value == "<-":
                         if pos > 0:
-                                self.inputs.icursor(pos - 1)
+                                text = self.inputs.get()
+                                pos = self.inputs.index(tk.INSERT)
+                            
+                                if pos == 0:
+                                        return
+                                
+                                # ưu tiên di chuyển qua token dài
+                                for token in sorted(SMART_TOKENS, key=len, reverse=True):
+                                        L = len(token)
+                                        if pos >= L and text[pos - L:pos] == token:
+                                                #self.inputs.delete(pos - L, pos)
+                                                self.inputs.icursor(pos - L)
+                                                return
                         elif pos == 0 and not self.inputs.get(): pass
                         elif pos == 0:
                                 self.inputs.icursor(tk.END)
                 elif value == "->":
                         if pos < len(text):
-                                self.inputs.icursor(pos + 1)
+                                text = self.inputs.get()
+                                pos = self.inputs.index(tk.INSERT)
+                            
+                                if pos == 0:
+                                        return
+                                
+                                # ưu tiên di chuyển qua token dài
+                                for token in sorted(SMART_TOKENS, key=len, reverse=True):
+                                        L = len(token)
+                                        if pos >= L and text[pos - L:pos] == token:
+                                                #self.inputs.delete(pos - L, pos)
+                                                self.inputs.icursor(pos - L)
+                                                return
                         elif pos == len(text):
                                 if not self.inputs.get(): pass
-                                else:
-                                        self.inputs.icursor(0)
+                                else: self.inputs.icursor(0)
                 elif value == "up":
-                        #if self.history and not self.inputs.get():
-#                                expr, res, flag = self.history[-1]
-#                                if flag:
-#                                        self.inputs.delete(0, tk.END)
-#                                        self.inputs.insert(0, expr)
-#                                        self.output.delete(0, tk.END)
-#                                        self.output.insert(0, res)
                         pass
 
                 elif value == "down":
@@ -170,7 +183,7 @@ class Calculator_fx:
                                 self.inputs.insert(pos, value)
                                 self.inputs.icursor(pos)
                         self.output.delete(0, tk.END)
-                elif value in ([",", "_"] + names):
+                elif value in ([",", "_"] + pfe.names):
                         self.inputs.insert(pos, value)
                         self.inputs.icursor(pos + 1)
                         self.output.delete(0, tk.END)
@@ -182,7 +195,7 @@ class Calculator_fx:
                         if pos == 0:
                                 self.inputs.insert(pos, ")")
                                 self.inputs.icursor(pos + 1)
-                        elif expr[pos-1] == ")":
+                        elif pos < len(expr) and expr[pos] == ")":
                                 self.inputs.icursor(pos + 1)
                         else:
                                 self.inputs.insert(pos, ")")
@@ -190,9 +203,16 @@ class Calculator_fx:
                         self.output.delete(0, tk.END)
                 elif value == "j":
                         if complex_choice:
-                                self.inputs.insert(pos, "*1j")
-                                self.inputs.icursor(pos + 3)
-                                self.output.delete(0, tk.END)
+                                expr = self.inputs.get()
+                                if pos == 0 and len(expr) == 0: pass
+                                elif 0 < pos < len(expr) and expr[pos-1] in ["+", "-", "*", "/", "("]:
+                                        self.inputs.insert(pos, "*1j")
+                                        self.inputs.icursor(pos)
+                                        self.output.delete(0, tk.END)
+                                else:
+                                        self.inputs.insert(pos, "*1j")
+                                        self.inputs.icursor(pos+3)
+                                        self.output.delete(0, tk.END)
                 elif value in ["inte", "frac", "sqrt", "log", "ln", "sin", "cos", "tan",
                                 "d_dx", "sums", "muls"]:
                         text = value+"()"
@@ -249,30 +269,37 @@ class Calculator_fx:
                         self.build_extra_grid()
                         self.build_main_grid()
         def on_press4(self, value):
-                #global SHIFT_MODE, ALPHA_MODE, CALC_MODE, SOLVE_MODE
+                self.inputs.focus_set()
+                pos = self.inputs.index(tk.INSERT)
                 """Cho bảng số"""
                 if value == "AC":
                         self.inputs.delete(0, tk.END)
                         self.output.delete(0, tk.END)
                 elif value == "DEL":
-                        self.inputs.focus_set()
-                        pos = self.inputs.index(tk.INSERT)
-                        if pos > 0:
-                                self.inputs.delete(pos - 1, pos)
-                                self.inputs.icursor(pos - 1)
-                        elif pos == 0:
-                                if len(self.inputs.get()) == 0:
-                                        pass # Do nothing
-                                else:
-                                        self.inputs.delete(pos, pos + 1)
+                        text = self.inputs.get()
+                        if pos == 0:
+                                return
+                        
+                        # ưu tiên xoá token dài
+                        for token in sorted(SMART_TOKENS, key=len, reverse=True):
+                                L = len(token)
+                                if pos >= L and text[pos - L:pos] == token:
+                                        self.inputs.delete(pos - L, pos)
+                                        self.inputs.icursor(pos - L)
+                                        return
+                        # fallback: xoá 1 ký tự
+                        self.inputs.delete(pos - 1, pos)
+                        self.inputs.icursor(pos - 1)
                         self.output.delete(0, tk.END)
                 elif value == "=":
                         if not self.calc_mode:
                                 try:
                                         expr = self.inputs.get()
-                                        result = evaluate_expression(expr)
+                                        result = pfe.evaluate_expression(expr)
+                                        print(pfe.Ans)
                                         self.output.delete(0, tk.END)
                                         self.output.insert(0, str(result))
+                                        self.regulation = "S"
                                 except:
                                         self.output.delete(0, tk.END)
                                         self.output.insert(0, MATH_ERROR)
@@ -290,7 +317,7 @@ class Calculator_fx:
                                                 self.inputs.insert(0, f"{self.calc_vars[self.calc_index]}=")
                                         else:
                                         # Tính xong
-                                                res = calc(expr=self.calc_expr, **self.calc_values)
+                                                res = pfe.calc(expr=self.calc_expr, **self.calc_values)
                                                 self.output.delete(0, tk.END)
                                                 self.output.insert(0, str(res))
 
@@ -303,11 +330,12 @@ class Calculator_fx:
                                         self.output.insert(0, MATH_ERROR)
                 elif value == "OFF":
                         exit(0)
+                elif value in ["Int", "Pol", "Rnd", "RandInt", "Rec"]:
+                        text = value + "()"
+                        self.inputs.insert(pos, text)
+                        self.inputs.icursor(pos+1)
                 else:
                         self.output.delete(0, tk.END)
-                        # ép Entry lấy lại focus# ép Entry lấy lại focus
-                        self.inputs.focus_set()
-
                         # lấy vị trí cursor HIỆN TẠI
                         pos = self.inputs.index(tk.INSERT)
 
@@ -365,7 +393,7 @@ class Calculator_fx:
         def build_extra_grid(self):  
                 self.extra_frame = tk.Frame(self.win)
                 self.extra_frame.pack(pady=4)
-                self.extra_color = TEXT_NORMAL
+                #self.extra_color = TEXT_NORMAL
             
                 if self.shift:
                         grid = self.extra_shift
@@ -386,11 +414,17 @@ class Calculator_fx:
                                 )
                                 btn.grid(row=r, column=c, padx=2, pady=2)
                                 btn.bind("<Button-1>", lambda e, t=txt: self.on_press3(t))
+                                if self.shift:
+                                        self.extra_color = TEXT_ACTIVE
+                                elif self.alpha:
+                                        self.extra_color = TEXT_ALPHA
+                                else:
+                                        self.extra_color = TEXT_NORMAL
                                 btn.config(fg=self.extra_color)
         def build_main_grid(self):  
                 self.main_frame = tk.Frame(self.win)
                 self.main_frame.pack(pady=6)
-                self.main_color = TEXT_NORMAL
+                #self.main_color = TEXT_NORMAL
                 if self.shift:
                         grid = self.main_shift
                 elif self.alpha:
@@ -408,6 +442,12 @@ class Calculator_fx:
                                 )
                                 btn.grid(row=r, column=c, padx=2, pady=2)
                                 btn.bind("<Button-1>", lambda e, t=txt: self.on_press4(t))
+                                if self.shift:
+                                        self.main_color = TEXT_ACTIVE
+                                elif self.alpha:
+                                        self.main_color = TEXT_ALPHA
+                                else:
+                                        self.main_color = TEXT_NORMAL
                                 btn.config(fg=self.main_color)
         def run(self):  
                 self.win.mainloop()  
