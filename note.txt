@@ -1,3 +1,4 @@
+Date: 29/12/25
 Remaining to add:
 - Mode: inequality, True/False, 
 - Abs, Pol, Rec, Int, Rnd: core and UI
@@ -8,3 +9,13 @@ Remaining to add:
 - (More hardcore level 3) Carefully fixing the `preprocess_expression` and add in safe_dict some other func. to eliminate as much error as the code can from eval...
 - (More tired level max) Creating exception thrower and catcher for all the app.
 - (A bit relieved) Running and debugging manually.
+Date: 31/12/25
+This must be process in evaluate_expression func.:
+- Check if the result is tuple: take the information at idx [2] <- NEED to be given in the tuple-giving func..
+In pre-processing func.:
+- re (again) for those like:
+    + "i" -> 1j
+    + "..." -> Rec(r, theta) -> resemble to what 'WE' have done...
+    + Similar to Rec, care Pol func.
+    + modify function Pol and Rec and modulo
+Just for the core. Moving to UI... Uhm nothing to do left except for what I noted few days ago.
