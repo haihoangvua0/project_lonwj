@@ -370,7 +370,7 @@ def preprocess_expression(expr: str) -> str:
 
     expr = expr.replace("^", "**")
     expr = re.sub(r'\s+', '', expr)
-    
+
     pattern = re.compile(r'\|([^|]+)\|')
 
     while pattern.search(expr):
@@ -1059,9 +1059,9 @@ def stor_settings():
 stor_settings()
 # debug line
 #from time import sleep
-print("Set data")
+#print("Set data")
 #sleep(1.5)
-print("Debugging...")
+#print("Debugging...")
 res_ = []
 res_.append(str(solve_eq("x**2+B", ask=True, B=1))+"\n")
 stor(x=sqrt(2)); 
@@ -1077,8 +1077,8 @@ BASE_DIR_ = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(BASE_DIR_, "run.txt")
 with open(file_path, "w", encoding="utf-8") as f:
     f.writelines(res_)
-print("Done")
+#print("Done")
 #sleep(1.5)
-os.system('cls' if os.name == 'nt' else 'clear')
+#os.system('cls' if os.name == 'nt' else 'clear')
 del res_;
 Ans = 0
