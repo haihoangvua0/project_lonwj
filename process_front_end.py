@@ -8,11 +8,16 @@ from decimal import Decimal
 import cmath
 import random
 
+theta_symbol = "\u03B8"     
+pi_symbol = "\u03C0"        
+degree = "\u00B0"    
+angle = "\u2220"     
+sqrt_symbol = "\u221A"      
+
 Randint = random.randint
-Ran_ = random.random
+Ran_ = random.random()
 Rnd = round
 
-#from matrix import *
 MATH_ERROR = "MATH ERROR"
 pi, e = math.pi, math.e
 gcd = math.gcd
@@ -297,9 +302,7 @@ def returning(n: int | float | Decimal | complex,
     elif isinstance(n, complex):
         if complex_choice:
             raise ValueError(MATH_ERROR)
-        new_imag = returning(n.imag, "D")
-        new_real = returning(n.real, "D")
-        return complex(new_real, new_imag)
+        return n
     # ----------------------
     # 6) Thử phân tích dạng a*sqrt(b)
     # ----------------------
@@ -313,7 +316,7 @@ def returning(n: int | float | Decimal | complex,
     # 5) Dạng hữu tỉ nếu choice="S"
     # ----------------------
     if choice.upper() == "S":
-        frac = Fraction(*float(n).as_integer_ratio()).limit_denominator()
+        frac = Fraction(*float.as_integer_ratio(n)).limit_denominator()
         if abs(float(frac) - n) < 1e-15:
             # nếu nguyên
             if frac.denominator == 1:
@@ -340,20 +343,93 @@ def check_irrational(n: float) -> bool:
 
 # ======================
 # Chia lấy dư và hệ toạ độ Đề-các
-def Pol(x: int | float | Fraction | Decimal, y: int | Fraction | float | Decimal):
+def Pol(x: int | float | Fraction | Decimal, y: int | Fraction | float | Decimal, /, ask: bool = False):
     import math
     r = math.hypot(x, y)
     theta = convert_deg(math.atan2(y, x))
-    return r, theta
+    if ask:
+        return r, theta, "pol"
+    elif complex_choice:
+        return r, theta
+    return returning(r)
 
-def Rec(r: int | float | Fraction | Decimal, theta: int | float | Fraction | Decimal):
+def Rec(r: int | float | Fraction | Decimal, theta: int | float | Fraction | Decimal, /, ask: bool = False):
     import math
     theta = _to_radian_if_needed(theta)
     x = r * math.cos(theta)
     y = r * math.sin(theta)
-    return x, y
+    if ask:
+        return x, y, "rec"
+    elif complex_choice:
+        return x, y
+    return returning(x)
+
+# =========================
+# Complex process
+# =========================
+
+# Real part:
+def ReP(z: int | float | Fraction | complex | str):
+    if complex_choice:
+        if isinstance(z, complex):
+            return returning(z.real)
+        elif isinstance(z, str):
+            if angle in z:
+                r, t = map(returning, z.split(angle))
+                re, _ = Rec(r, t)
+                return returning(re)
+        else:
+            return returning(z)
+    else: raise ValueError(MATH_ERROR)
+def ImP(z: int | float | Fraction | complex | str):
+    if complex_choice:
+        if isinstance(z, complex):
+            return returning(z.imag)
+        elif isinstance(z, str):
+            if angle in z:
+                r, t = map(returning, z.split(angle))
+                _, im = Rec(r, t)
+                return returning(im)
+            else:
+                return evaluate_expression(z)
+        else:
+            return returning(z)
+    else: raise ValueError(MATH_ERROR)
+
+def Arg(z: complex | int | float | Fraction | str):
+    if complex_choice:
+        if isinstance(z, complex):
+            _, theta = Pol(z.real, z.imag)
+            return theta
+        elif isinstance(z, str):
+            if angle in z:
+                r, t = map(returning, z.split(angle))
+                _, im = Rec(r, t)
+                return returning(im)
+            else:
+                return evaluate_expression(z)
+        else:
+            return 0
+    else: return 0
+
+def Conjg(z: int | float | Fraction | complex | str):
+    if complex_choice:
+        if isinstance(z, complex):
+            return z.conjugate()
+        elif isinstance(z, str):
+            if angle in z:
+                r, t = map(returning, z.split(angle))
+                re, im = Rec(r, t)
+                new_cmplx = complex(re, im)
+                return new_cmplx.conjugate()
+            else: return evaluate_expression(z)
+        else: return returning(z)
+    else:
+        raise ValueError(MATH_ERROR)
 
 def modulo(a: int, b: int, /, ask: bool = False):
+    if complex_choice:
+        raise ValueError(MATH_ERROR)
     if not b != 0:
         raise ValueError(MATH_ERROR)
     res = a // b
@@ -361,7 +437,7 @@ def modulo(a: int, b: int, /, ask: bool = False):
         return returning(res)
     remain = a - res * b
     if ask:
-        return res, remain
+        return res, remain, "mod"
     return res
 
 # 6. Expression engine
@@ -370,7 +446,7 @@ def preprocess_expression(expr: str) -> str:
 
     expr = expr.replace("^", "**")
     expr = re.sub(r'\s+', '', expr)
-
+    
     pattern = re.compile(r'\|([^|]+)\|')
 
     while pattern.search(expr):
@@ -447,8 +523,9 @@ def preprocess_expression(expr: str) -> str:
     # -------------------------------
     funcs = [
         "sqrt", "sin", "cos", "tan", "asin", "acos", "atan",
-        "log", "ln", "exp", "sigma_s", "muls", "integral",
-        "nth_rt", "pow", "Pow", "abs", "factorial", "gcd", "lcm"
+        "log", "ln", "exp", "sums", "muls", "integral",
+        "nth_rt", "pow", "Pow", "abs", "factorial", "gcd", "lcm",
+        "modulo"
     ] + list(actual_val_const)
 
     for f in funcs:
@@ -505,7 +582,15 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /):
         "Pol": Pol,
         "modulo": modulo
     }
-
+    if complex_choice:
+        safe.pop("Rec")
+        safe.pop("Pol")
+        safe.update({
+            "ImP": ImP,
+            "ReP": ReP,
+            "Arg": Arg,
+            "Conjg": Conjg
+        })
     avail_vars = {k: v for k, v in zip(names, variable)}
     new_ = avail_vars | {"Ans": Ans} | actual_val_const
 
@@ -1059,9 +1144,9 @@ def stor_settings():
 stor_settings()
 # debug line
 #from time import sleep
-#print("Set data")
+print("Set data")
 #sleep(1.5)
-#print("Debugging...")
+print("Debugging...")
 res_ = []
 res_.append(str(solve_eq("x**2+B", ask=True, B=1))+"\n")
 stor(x=sqrt(2)); 
@@ -1077,8 +1162,8 @@ BASE_DIR_ = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(BASE_DIR_, "run.txt")
 with open(file_path, "w", encoding="utf-8") as f:
     f.writelines(res_)
-#print("Done")
+print("Done")
 #sleep(1.5)
-#os.system('cls' if os.name == 'nt' else 'clear')
+os.system('cls' if os.name == 'nt' else 'clear')
 del res_;
 Ans = 0
