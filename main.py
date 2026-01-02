@@ -1,7 +1,9 @@
 import tkinter as tk  
 import process_front_end as pfe
+import process_complex as pc
 returning = pfe.returning
 MATH_ERROR = pfe.MATH_ERROR
+complex_choice = pfe.complex_choice
 
 TEXT_NORMAL = "black"
 TEXT_ACTIVE = "#d39e00"   # vàng chữ
@@ -384,7 +386,17 @@ class Calculator_fx:
                                 try:
                                         expr = self.inputs.get()
                                         result = pfe.evaluate_expression(expr)
-                                        print(pfe.Ans)
+                                        if isinstance(result, tuple):
+                                                if result[-1] == "mod":
+                                                        self.output.insert(0, f"{result[0]}, R={result[1]}")
+                                                elif result[-1] == "pol":
+                                                        self.output.insert(0, f"r={result[0]}, {pfe.theta_symbol}={result[1]}")
+                                                elif result[-1] == "rec":
+                                                        self.output.insert(0, f"x={result[0]}, y={result[1]}")
+                                        elif complex_choice:
+                                                if isinstance(result, complex):
+                                                        self.output.insert(0, pc.format_complex_output(str(result)))
+                                        #print(pfe.Ans)
                                         self.output.delete(0, tk.END)
                                         self.output.insert(0, str(result))
                                         self.regulation = "S"
