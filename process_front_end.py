@@ -38,7 +38,6 @@ def app_open(choice: int = 0):
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(str(choice))
-app_open(0)
 def stor_cmplx(choice: int = 0):
     global complex_choice
 
@@ -300,7 +299,7 @@ def returning(n: int | float | Decimal | complex,
         if abs(n - round(n)) < 1e-12:
             return int(round(n))
     elif isinstance(n, complex):
-        if complex_choice:
+        if not complex_choice:
             raise ValueError(MATH_ERROR)
         return n
     # ----------------------
@@ -316,7 +315,7 @@ def returning(n: int | float | Decimal | complex,
     # 5) Dạng hữu tỉ nếu choice="S"
     # ----------------------
     if choice.upper() == "S":
-        frac = Fraction(*float.as_integer_ratio(n)).limit_denominator()
+        frac = Fraction(*float(n).as_integer_ratio()).limit_denominator()
         if abs(float(frac) - n) < 1e-15:
             # nếu nguyên
             if frac.denominator == 1:
@@ -341,7 +340,7 @@ def check_irrational(n: float) -> bool:
     except Exception:
         return True
 
-# ======================
+# =========================
 # Chia lấy dư và hệ toạ độ Đề-các
 def Pol(x: int | float | Fraction | Decimal, y: int | Fraction | float | Decimal, /, ask: bool = False):
     import math
@@ -403,9 +402,8 @@ def Arg(z: complex | int | float | Fraction | str):
             return theta
         elif isinstance(z, str):
             if angle in z:
-                r, t = map(returning, z.split(angle))
-                _, im = Rec(r, t)
-                return returning(im)
+                _, t = map(returning, z.split(angle))
+                return returning(t)
             else:
                 return evaluate_expression(z)
         else:
@@ -428,9 +426,7 @@ def Conjg(z: int | float | Fraction | complex | str):
         raise ValueError(MATH_ERROR)
 
 def modulo(a: int, b: int, /, ask: bool = False):
-    if complex_choice:
-        raise ValueError(MATH_ERROR)
-    if not b != 0:
+    if complex_choice and not not b != 0:
         raise ValueError(MATH_ERROR)
     res = a // b
     if a < 0 or b < 0:
@@ -485,16 +481,34 @@ def preprocess_expression(expr: str) -> str:
             expr
         )
 
+    # x2 độ gian nan với Pol và Rec
+    pure_pol = re.fullmatch(
+        r'Pol\(([^()]+),([^()]+)\)',
+        expr
+    )
+    if pure_pol:
+        a, b = pure_pol.groups()
+        return f"Pol({a},{b},ask=True)"
+
+    pure_rec = re.fullmatch(
+        r'Rec\(([^()]+),([^()]+)\)',
+        expr
+    )
+    if pure_rec:
+        a, b = pure_rec.groups()
+        return f"Rec({a},{b},ask=True)"
+    
+
     # -------------------------------
     # nCr / nPr
     # -------------------------------
     expr = re.sub(
-        r'(\([^()]+\)|[A-Za-z0-9_.]+)C(\([^()]+\)|[A-Za-z0-9_.]+)',
+        r'(\([^()]+\)|[A-Za-z0-9_.]+)_C_(\([^()]+\)|[A-Za-z0-9_.]+)',
         r'comb(\1,\2)',
         expr
     )
     expr = re.sub(
-        r'(\([^()]+\)|[A-Za-z0-9_.]+)P(\([^()]+\)|[A-Za-z0-9_.]+)',
+        r'(\([^()]+\)|[A-Za-z0-9_.]+)_P_(\([^()]+\)|[A-Za-z0-9_.]+)',
         r'perm(\1,\2)',
         expr
     )
@@ -547,14 +561,12 @@ def preprocess_expression(expr: str) -> str:
 # Central function map used for eval/sympify locals (keeps places consistent)
 # Define after helper functions so referenced callables exist.
 
-def evaluate_expression(expr: str, simplify_symbolic=True, /):
-    global variable, A, B, C, D, E, F, x, y, z, M, names, Ans, app
+def evaluate_expression(expr: str, simplify_symbolic=True):
+    global variable, A, B, C, D, E, F, x, y, z, M, names, Ans
     expr_clean = preprocess_expression(expr)
-
     safe = {
         "sin": sin, "cos": cos, "tan": tan,
         "asin": asin, "acos": acos, "atan": atan,
-        "sqrt": sqrt,
         "ln": ln,
         "sums": sums,
         "muls": muls,
@@ -569,7 +581,6 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /):
         "pow": Pow,
         "Pow": Pow,
         "abs": abs,
-        "j": 1j,
         "frac": Fraction,
         "nth_rt": nth_root,
         "gcd": gcd,
@@ -580,12 +591,14 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /):
         "Rnd": Rnd,
         "Rec": Rec,
         "Pol": Pol,
-        "modulo": modulo
+        "modulo": modulo,
+        "sqrt": sqrt
     }
     if complex_choice:
         safe.pop("Rec")
         safe.pop("Pol")
         safe.update({
+            "i": 1j,
             "ImP": ImP,
             "ReP": ReP,
             "Arg": Arg,
@@ -593,7 +606,7 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /):
         })
     avail_vars = {k: v for k, v in zip(names, variable)}
     new_ = avail_vars | {"Ans": Ans} | actual_val_const
-
+    check = list(new_ | safe)
     from sympy import sympify, radsimp, simplify as sym_simplify
     HAS_SYMPY = True
 
@@ -602,30 +615,16 @@ def evaluate_expression(expr: str, simplify_symbolic=True, /):
 
         if simplify_symbolic:
             s = sym_simplify(radsimp(s))
-
-        # Trường hợp trả về NUMBER thực, không ký hiệu
-        if s.is_number and not s.free_symbols:
-            return returning(float(s))
-
-        # --- SYMBOLIC + app mode ---
-        if app:
-            s_str = str(s)
-
-            # nếu chứa sqrt và không chứa biến không hợp lệ
-            if "sqrt" in s_str:
-                bad = s.free_symbols - set(avail_vars.keys())
-                if not bad:
-                    return s_str
-
-        # Còn lại: trả về dạng float
         s = str(s)
 
     # Nếu SymPy fail -> eval
+    
     safe |= new_
     res = eval(expr_clean, {"__builtins__": {}}, safe)
     res = returning(res)
     Ans = res
     return res
+
 
 def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
     global A, B, C, D, E, F, x, y, z, M, actual_val_const, Ans
@@ -1144,9 +1143,9 @@ def stor_settings():
 stor_settings()
 # debug line
 #from time import sleep
-print("Set data")
+#print("Set data")
 #sleep(1.5)
-print("Debugging...")
+#print("Debugging...")
 res_ = []
 res_.append(str(solve_eq("x**2+B", ask=True, B=1))+"\n")
 stor(x=sqrt(2)); 
@@ -1162,8 +1161,10 @@ BASE_DIR_ = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(BASE_DIR_, "run.txt")
 with open(file_path, "w", encoding="utf-8") as f:
     f.writelines(res_)
-print("Done")
+#print("Done")
 #sleep(1.5)
-os.system('cls' if os.name == 'nt' else 'clear')
+#os.system('cls' if os.name == 'nt' else 'clear')
+#app_open(1);
+#print((temp := evaluate_expression("8sin(60)+3")), type(temp))
 del res_;
 Ans = 0
