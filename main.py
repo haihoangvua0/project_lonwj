@@ -16,7 +16,7 @@ SMART_TOKENS = [
         "*10^", "Int(", "Pol(", "Rec(",
         "RandInt(", "pi", "Rnd(", "Ran#",
         "*1j", "^", "^2", "^3", "^-1", "10^",
-        "exp(", "[mod]"
+        "exp(", "[mod]", "_C_", "_P_"
 ] + pfe.names + list(pfe.actual_val_const)
 class Calculator_fx:
         #global SHIFT_MODE, ALPHA_MODE, CALC_MODE, SOLVE_MODE
@@ -24,7 +24,7 @@ class Calculator_fx:
                 self.win = tk.Tk()  
                 self.win.title("Casio FX Hybrid Simulator")  
                 self.win.geometry("400x600")
-                self.win.config(bg="#B0E0E6")  
+                self.win.config(bg="#4658FF")  
                 self.win.update_idletasks()
                 self.shift = False
                 self.alpha = False
@@ -42,7 +42,7 @@ class Calculator_fx:
                         ["OPTN", "CALC", "", "", "inte", "x"],  
                         ["frac", "sqrt", "^2", "^", "log", "ln"],  
                         ["_", "degs", "^-1", "sin", "cos", "tan"],  
-                        ["Stor", "j", "(", ")", "S<=>D", "M+"]
+                        ["Stor", "i", "(", ")", "S<=>D", "M+"]
                 ]
                 self.extra_alpha = [
                         ["", "=", "", "", "", "muls"],
@@ -180,20 +180,19 @@ class Calculator_fx:
                                                 #self.inputs.delete(pos - L, pos)
                                                 self.inputs.icursor(pos - L)
                                                 return
-                        elif pos == 0 and not self.inputs.get(): pass
+                        elif pos == 0:
+                                if not self.inputs.get(): pass
+                                else: self.inputs.icursor(tk.END)
                 elif value == "->":
                         self.finish_eval = False # at all cost
                         if pos < len(text):
                                 text = self.inputs.get()
                                 pos = self.inputs.index(tk.INSERT)
 
-                                if pos == 0:
-                                        return
-
                                 # ưu tiên di chuyển qua token dài
                                 for token in sorted(SMART_TOKENS, key=len, reverse=True):
                                         L = len(token)
-                                        if pos >= L and text[pos - L:pos] == token:
+                                        if text[pos:pos+L] == token:
                                                 #self.inputs.delete(pos - L, pos)
                                                 self.inputs.icursor(pos + L)
                                                 return
@@ -263,12 +262,12 @@ class Calculator_fx:
                                 expr = self.inputs.get()
                                 if pos == 0 and len(expr) == 0: pass
                                 elif 0 < pos < len(expr) and expr[pos-1] in ["+", "-", "*", "/", "("]:
-                                        self.inputs.insert(pos, "*1j")
+                                        self.inputs.insert(pos, "i")
                                         self.inputs.icursor(pos)
                                         self.output.delete(0, tk.END)
                                 else:
-                                        self.inputs.insert(pos, "*1j")
-                                        self.inputs.icursor(pos+3)
+                                        self.inputs.insert(pos, "i")
+                                        self.inputs.icursor(pos+1)
                                         self.output.delete(0, tk.END)
                 elif value in ["inte", "frac", "sqrt", "log", "ln",
                                "sin", "cos", "tan",
@@ -353,12 +352,12 @@ class Calculator_fx:
                         del_right = False
                         if pos == 0:
                                 del_right = True
-                        if text[pos-1] == "|":
+                        if pos > 0 and text[pos-1] == "|":
                                 pair = self.find_abs_pair(text, pos)
                                 if pair:
                                         l, r = pair
+                                        self.inputs.delete(r, r + 1)
                                         self.inputs.delete(l, l+1)
-                                        self.inputs.delete(r-1, r)
                                         self.inputs.icursor(l)
                                         return
                         # ưu tiên xoá token dài
@@ -375,7 +374,7 @@ class Calculator_fx:
                         # fallback: xoá 1 ký tự
                         if del_right:
                                 self.inputs.delete(pos, pos+1)
-                                self.inputs.icursor(pos - 1)
+                                self.inputs.icursor(pos)
                         else:
                                 self.inputs.delete(pos - 1, pos)
                                 self.inputs.icursor(pos - 1)
