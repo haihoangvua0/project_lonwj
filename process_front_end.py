@@ -187,18 +187,18 @@ def _to_radian_if_needed(x: float):
 
 def convert_deg(x: int | float | Fraction | Decimal):
     if ANGLE_MODE == "DEG":
-        return math.degrees(x)
+        return returning(math.degrees(x))
     if ANGLE_MODE == "GRA":
-        return x * 200 / pi
-    return x   # RAD
+        return returning(x * 200 / pi)
+    return returning(x)   # RAD
 # 3. Trig functions (Casio-compatible) + Hypebolic Funcs
-def sin(x: float): return math.sin(_to_radian_if_needed(x))
-def cos(x: float): return math.cos(_to_radian_if_needed(x))
+def sin(x: float): return returning(math.sin(_to_radian_if_needed(x)))
+def cos(x: float): return returning(math.cos(_to_radian_if_needed(x)))
 def tan(x: float):
     a = _to_radian_if_needed(x)
     if math.isclose(math.cos(a), 0, abs_tol=1e-15):
         return float("inf")
-    return math.tan(a)
+    return returning(math.tan(a))
 
 def asin(x: float):
     v = math.asin(x)
@@ -213,26 +213,26 @@ def atan(x: float):
     return convert_deg(v)
 
 def sinh(x: float):
-    return math.sinh(x)
+    return returning(math.sinh(x))
 
 def cosh(x: float):
-    return math.cosh(x)
+    return returning(math.cosh(x))
 
 def tanh(x: float):
-    return math.tanh(x)
+    return returning(math.tanh(x))
 
 def asinh(x: float):
     v = math.asinh(x)
     # inverse hyperbolic KHÔNG phụ thuộc chế độ DEG/RAD/GRA
-    return v
+    return returning(v)
 
 def acosh(x: float):
     v = math.acosh(x)
-    return v
+    return returning(v)
 
 def atanh(x: float):
     v = math.atanh(x)
-    return v
+    return returning(v)
 # 4. Core helpers
 
 # ---------------------------------------------------------
@@ -287,11 +287,12 @@ def returning(n: int | float | Decimal | complex,
         # ----------------------
         # 2) Scientific
         # ----------------------
-
-        new_n = is_scientific_notation(n)
-        if new_n == n:
-            n = new_n
-        else: return new_n
+        n = float(n)
+        if n >= 1e100: return float("inf")
+        elif n <= -1e100: return float("-inf")
+        elif "e" in str(n):
+            new_n = is_scientific_notation(n)
+            return new_n
 
         # ----------------------
         # 4) Số nguyên
@@ -442,7 +443,47 @@ def preprocess_expression(expr: str) -> str:
 
     expr = expr.replace("^", "**")
     expr = re.sub(r'\s+', '', expr)
+    # -------------------------------
+    # protect expression argument in inte()
+    # inte(a,b,expr)  -> inte(a,b,"expr")
+    # -------------------------------
+    def repl_inte(m):
+        low, high, expr = m.groups()
+        return f'inte({low},{high},"{expr}")'
     
+    expr = re.sub(
+        r'inte\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)',
+        repl_inte,
+        expr
+    )
+    def repl_sigma(m):
+        low, high, expr = m.groups()
+        return f'sums({low},{high},"{expr}")'
+    
+    expr = re.sub(
+        r'sums\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)',
+        repl_sigma,
+        expr
+    )
+    def repl_muls(m):
+        low, high, expr = m.groups()
+        return f'muls({low},{high},"{expr}")'
+    
+    expr = re.sub(
+        r'muls\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)',
+        repl_muls,
+        expr
+    )
+    def repl_diff(m):
+        low, high, expr = m.groups()
+        return f'sums({low},{high},"{expr}")'
+    
+    expr = re.sub(
+        r'sums\(\s*([^,]+)\s*,\s*([^)]+)\s*\)',
+        repl_diff,
+        expr
+    )
+
     pattern = re.compile(r'\|([^|]+)\|')
 
     while pattern.search(expr):
@@ -497,7 +538,7 @@ def preprocess_expression(expr: str) -> str:
     if pure_rec:
         a, b = pure_rec.groups()
         return f"Rec({a},{b},ask=True)"
-    
+
 
     # -------------------------------
     # nCr / nPr
@@ -581,7 +622,7 @@ def evaluate_expression(expr: str, simplify_symbolic=True):
         "pow": Pow,
         "Pow": Pow,
         "abs": abs,
-        "frac": Fraction,
+        #"frac": Fraction,
         "nth_rt": nth_root,
         "gcd": gcd,
         "lcm": lcm,
@@ -592,7 +633,8 @@ def evaluate_expression(expr: str, simplify_symbolic=True):
         "Rec": Rec,
         "Pol": Pol,
         "modulo": modulo,
-        "sqrt": sqrt
+        "sqrt": sqrt,
+        "exp": exp
     }
     if complex_choice:
         safe.pop("Rec")
@@ -606,7 +648,7 @@ def evaluate_expression(expr: str, simplify_symbolic=True):
         })
     avail_vars = {k: v for k, v in zip(names, variable)}
     new_ = avail_vars | {"Ans": Ans} | actual_val_const
-    check = list(new_ | safe)
+    #check = list(new_ | safe)
     from sympy import sympify, radsimp, simplify as sym_simplify
     HAS_SYMPY = True
 
@@ -618,7 +660,7 @@ def evaluate_expression(expr: str, simplify_symbolic=True):
         s = str(s)
 
     # Nếu SymPy fail -> eval
-    
+
     safe |= new_
     res = eval(expr_clean, {"__builtins__": {}}, safe)
     res = returning(res)
@@ -659,7 +701,6 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
     FUNC_MAP = {
         "sin": sin, "cos": cos, "tan": tan,
         "asin": asin, "acos": acos, "atan": atan,
-        "sqrt": sqrt,
         "ln": ln,
         "sums": sums,
         "muls": muls,
@@ -674,8 +715,7 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
         "pow": Pow,
         "Pow": Pow,
         "abs": abs,
-        "j": 1j,
-        "frac": Fraction,
+        #"frac": Fraction,
         "nth_rt": nth_root,
         "gcd": gcd,
         "lcm": lcm,
@@ -685,8 +725,20 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
         "Rnd": Rnd,
         "Rec": Rec,
         "Pol": Pol,
-        "modulo": modulo
+        "modulo": modulo,
+        "sqrt": sqrt,
+        "exp": exp
     }
+    if complex_choice:
+        FUNC_MAP.pop("Rec")
+        FUNC_MAP.pop("Pol")
+        FUNC_MAP.update({
+            "i": 1j,
+            "ImP": ImP,
+            "ReP": ReP,
+            "Arg": Arg,
+            "Conjg": Conjg
+        })
     # Thay thế các biến đã lưu vào biểu thức
     local_dict = avail_var.copy()
     # Thêm các hằng số toán học nếu cần
@@ -744,6 +796,7 @@ def exp(n: int | float | Decimal | Fraction | complex):
         result = new_real_pow + new_imag_pow
         return result
     return math.exp(n)
+
 
 # Hàm phân tích thừa số nguyên tố cho n lớn (n <= 10**10)
 def sieve_primes(limit: int):
@@ -994,7 +1047,6 @@ def calc(expr: str, **vars_values):
         local_dict = {
             "sin": sin, "cos": cos, "tan": tan,
             "asin": asin, "acos": acos, "atan": atan,
-            "sqrt": sqrt,
             "ln": ln,
             "sums": sums,
             "muls": muls,
@@ -1009,8 +1061,7 @@ def calc(expr: str, **vars_values):
             "pow": Pow,
             "Pow": Pow,
             "abs": abs,
-            "j": 1j,
-            "frac": Fraction,
+            #"frac": Fraction,
             "nth_rt": nth_root,
             "gcd": gcd,
             "lcm": lcm,
@@ -1020,8 +1071,20 @@ def calc(expr: str, **vars_values):
             "Rnd": Rnd,
             "Rec": Rec,
             "Pol": Pol,
-            "modulo": modulo
+            "modulo": modulo,
+            "sqrt": sqrt,
+            "exp": exp
         }
+        if complex_choice:
+            local_dict.pop("Rec")
+            local_dict.pop("Pol")
+            local_dict.update({
+                "i": 1j,
+                "ImP": ImP,
+                "ReP": ReP,
+                "Arg": Arg,
+                "Conjg": Conjg
+            })
         avail_var |= vars_values
         stor(**avail_var)
         avail_var |= actual_val_const
