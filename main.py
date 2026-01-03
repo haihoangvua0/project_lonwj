@@ -13,11 +13,10 @@ pfe.app_open(1)
 SMART_TOKENS = [
         "sin(", "cos(", "tan(",
         "log(", "ln(", "sqrt(",
-        "inte(", "frac(",
-        "d_dx(", "sums(", "muls(",
+        "inte(", "d_dx(", "sums(", "muls(",
         "*10^", "Int(", "Pol(", "Rec(",
         "RandInt(", "pi", "Rnd(", "Ran#",
-        "*1j", "^", "^2", "^3", "^-1", "10^",
+        "i", "^(", "10^",
         "exp(", "[mod]", "_C_", "_P_"
 ] + pfe.names + list(pfe.actual_val_const)
 class Calculator_fx:
@@ -26,7 +25,7 @@ class Calculator_fx:
                 self.win = tk.Tk()  
                 self.win.title("Casio FX Hybrid Simulator")  
                 self.win.geometry("400x600")
-                self.win.config(bg="#4658FF")  
+                self.win.config(bg="#3BA6B2")  
                 self.win.update_idletasks()
                 self.shift = False
                 self.alpha = False
@@ -42,7 +41,7 @@ class Calculator_fx:
                 self.temp_value = 0
                 self.extra_norm = [
                         ["OPTN", "CALC", "", "", "inte", "x"],  
-                        ["frac", "sqrt", "^2", "^", "log", "ln"],  
+                        [pfe.angle, "sqrt", "^2", "^", "log", "ln"],  
                         ["_", "degs", "^-1", "sin", "cos", "tan"],  
                         ["Stor", "i", "(", ")", "S<=>D", "M+"]
                 ]
@@ -101,10 +100,10 @@ class Calculator_fx:
                                 depth += 1
                         elif expr[i] == "(":
                                 depth -= 1
-            
+
                 if left is None:
                         return None
-            
+
                 # tìm | bên phải
                 right = None
                 depth = 0
@@ -118,10 +117,10 @@ class Calculator_fx:
                                 depth += 1
                         elif expr[i] == ")":
                                 depth -= 1
-            
+
                 if right is None:
                         return None
-            
+
                 return left, right
         def build_display(self):  
                 frame = tk.Frame(self.win)  
@@ -169,12 +168,12 @@ class Calculator_fx:
                 pos = self.inputs.index(tk.INSERT)
                 text = self.inputs.get()
                 if value == "<-":
-                        self.finish_eval = False # at all cost
+                        if self.finish_eval:
+                                self.finish_eval = False # at all cost
+                                self.inputs.icursor(pos)
+                        self.output.delete(0, tk.END)
                         if pos > 0:
-                                text = self.inputs.get()
-                                if pos == 0:
-                                        self.inputs.icursor(tk.END)
-                                        return
+                                #text = self.inputs.get()
                                 # ưu tiên di chuyển qua token dài
                                 for token in sorted(SMART_TOKENS, key=len, reverse=True):
                                         L = len(token)
@@ -182,13 +181,15 @@ class Calculator_fx:
                                                 #self.inputs.delete(pos - L, pos)
                                                 self.inputs.icursor(pos - L)
                                                 return
+                                self.inputs.icursor(pos-1)
                         elif pos == 0:
                                 if not self.inputs.get(): pass
                                 else: self.inputs.icursor(tk.END)
                 elif value == "->":
                         self.finish_eval = False # at all cost
+                        self.output.delete(0, tk.END)
+                        #text = self.inputs.get()
                         if pos < len(text):
-                                text = self.inputs.get()
                                 pos = self.inputs.index(tk.INSERT)
 
                                 # ưu tiên di chuyển qua token dài
@@ -198,6 +199,7 @@ class Calculator_fx:
                                                 #self.inputs.delete(pos - L, pos)
                                                 self.inputs.icursor(pos + L)
                                                 return
+                                self.inputs.icursor(pos+1)
                         elif pos == len(text):
                                 if not self.inputs.get(): pass
                                 else: self.inputs.icursor(0)
@@ -219,14 +221,15 @@ class Calculator_fx:
                                 self.output.delete(0, tk.END)
                                 self.finish_eval = False
                         expr = self.inputs.get()
-                        if not expr[pos-1] in ["+", "-", "*", "/", "("]:
-                                self.inputs.insert(pos, value)
-                                self.inputs.icursor(pos + len(value))
+                        if len(expr) > 0 and pos > 0:
+                                if not expr[pos-1] in ["+", "-", "*", "/", "("]:
+                                        self.inputs.insert(pos, value)
+                                        self.inputs.icursor(pos + len(value))
                         else:
                                 self.inputs.insert(pos, value)
                                 self.inputs.icursor(pos)
                         self.output.delete(0, tk.END)
-                elif value in ([",", "_"] + pfe.names):
+                elif value in ([",", "_", "!"] + pfe.names):
                         if self.finish_eval:
                                 self.inputs.delete(0, tk.END)
                                 #self.inputs.insert("Ans")
@@ -272,9 +275,10 @@ class Calculator_fx:
                                         self.inputs.icursor(pos+1)
                                         self.output.delete(0, tk.END)
                 elif value in ["inte", "frac", "sqrt", "log", "ln",
-                               "sin", "cos", "tan",
-                               "d_dx", "sums", "muls"]:
-                        text = value+"()"
+                               "sin", "cos", "tan", "asin", "acos", "atan"
+                               "d_dx", "sums", "muls", "exp"]:
+                        expr = self.inputs.get()
+                        text = ("*" if (pos > 0 and expr[pos-1] in (pfe.names + ["Ans"])) else "") + value + "()"
                         self.inputs.insert(pos, text)
                         self.inputs.icursor(pos + len(text) - 1)
                         self.output.delete(0, tk.END)
@@ -328,6 +332,7 @@ class Calculator_fx:
                         else:
                                 self.output.insert(0, self.temp_value)
                                 self.regulation = "S"
+                elif value == "FACT": pass
                 if self.shift:
                         self.shift = False
                         self.extra_frame.destroy()
@@ -355,7 +360,7 @@ class Calculator_fx:
                         if pos == 0:
                                 del_right = True
                         if pos > 0 and text[pos-1] == "|":
-                                pair = self.find_abs_pair(text, pos)
+                                pair = self.find_abs_pair(text, pos-1)
                                 if pair:
                                         l, r = pair
                                         self.inputs.delete(r, r + 1)
@@ -382,6 +387,7 @@ class Calculator_fx:
                                 self.inputs.icursor(pos - 1)
                         self.output.delete(0, tk.END)
                 elif value == "=":
+                        self.output.delete(0, tk.END)
                         if not self.calc_mode:
                                 try:
                                         expr = self.inputs.get()
@@ -397,13 +403,14 @@ class Calculator_fx:
                                                 if isinstance(result, complex):
                                                         self.output.insert(0, pc.format_complex_output(str(result)))
                                         #print(pfe.Ans)
-                                        self.output.delete(0, tk.END)
-                                        self.output.insert(0, str(result))
+                                        elif isinstance(result, str): self.output.insert(0, MATH_ERROR); return
+                                        else: self.output.insert(0, str(result))
+                                                
                                         self.regulation = "S"
                                         self.finish_eval = True
-                                except:
+                                except Exception as ex:
                                         self.output.delete(0, tk.END)
-                                        self.output.insert(0, MATH_ERROR)
+                                        self.output.insert(0, ex)
                                         self.finish_eval = True
                         elif self.calc_ing:
                                 try:
@@ -436,10 +443,58 @@ class Calculator_fx:
                 elif value in ["Int", "Pol", "Rnd", "RandInt", "Rec"]:
                         if self.finish_eval:
                                 self.inputs.delete(0, tk.END)
+                                self.output.delete(0, tk.END)
                                 self.finish_eval = False
                         text = value + "()"
                         self.inputs.insert(pos, text)
+                        self.inputs.icursor(pos+len(text)-1)
+                elif value in "+-*/":
+                        if self.finish_eval:
+                                self.inputs.delete(0, tk.END)
+                                self.finish_eval = False
+                                self.output.delete(0, tk.END)
+                                self.inputs.insert(0, "Ans" + value)
+                                self.inputs.icursor(4)
+                                return
+                        
+                        self.inputs.insert(pos, value)
                         self.inputs.icursor(pos+1)
+                elif value in [str(i) for i in range(10)]:
+                        if self.finish_eval:
+                                self.inputs.delete(0, tk.END)
+                                self.finish_eval = False
+                                self.output.delete(0, tk.END)
+                                self.inputs.insert(0, value)
+                                self.inputs.icursor(4)
+                                return
+                        self.inputs.insert(pos, value)
+                        self.inputs.icursor(pos+1)
+                elif value == "nCr":
+                        if self.finish_eval:
+                                self.inputs.delete(0, tk.END)
+                                self.finish_eval = False
+                                self.output.delete(0, tk.END)
+                                self.inputs.insert(0, "Ans_C_")
+                                self.inputs.icursor(len("Ans_C_"))
+                        else:
+                                self.inputs.insert(pos, "_C_")
+                                self.inputs.icursor(pos+3)
+                elif value == "nPr":
+                        if self.finish_eval:
+                                self.inputs.delete(0, tk.END)
+                                self.finish_eval = False
+                                self.output.delete(0, tk.END)
+                                self.inputs.insert(0, "Ans_P_")
+                                self.inputs.icursor(len("Ans_P_"))
+                        else:
+                                self.inputs.insert(pos, "_P_")
+                                self.inputs.icursor(pos+3)
+                elif value == "CONST":
+                        pass
+                elif value == "CONV":
+                        pass
+                elif value == "INS":
+                        pass
                 else:
                         self.output.delete(0, tk.END)
                         # lấy vị trí cursor HIỆN TẠI
@@ -480,6 +535,7 @@ class Calculator_fx:
                 btn = tk.Button(frame, text="up", width=2, height=1)
                 btn.grid(row=0, column=1, pady=2)
                 btn.bind("<Button-1>", lambda e: self.on_press2("up"))
+                btn.config(bg="#E8F0F2")
 
                 arrows = ["<-", "", "->"]  
                 for i, a in enumerate(arrows):  
@@ -490,12 +546,14 @@ class Calculator_fx:
                                 state="disabled" if a == "" else "normal"
                         )
                         btn.grid(row=1, column=i, padx=2)
+                        btn.config(bg="#E8F0F2")
                         if a:
                                 btn.bind("<Button-1>", lambda e, t=a: self.on_press2(t))
 
                 btn = tk.Button(frame, text="down", width=2, height=1)
                 btn.grid(row=2, column=1, pady=2)
                 btn.bind("<Button-1>", lambda e: self.on_press2("down"))
+                btn.config(bg="#E8F0F2")
         def build_extra_grid(self):  
                 self.extra_frame = tk.Frame(self.win)
                 self.extra_frame.pack(pady=4)
@@ -526,7 +584,7 @@ class Calculator_fx:
                                         self.extra_color = TEXT_ALPHA
                                 else:
                                         self.extra_color = TEXT_NORMAL
-                                btn.config(fg=self.extra_color)
+                                btn.config(fg=self.extra_color, bg="#E8F0F2")
         def build_main_grid(self):  
                 self.main_frame = tk.Frame(self.win)
                 self.main_frame.pack(pady=6)
@@ -554,7 +612,7 @@ class Calculator_fx:
                                         self.main_color = TEXT_ALPHA
                                 else:
                                         self.main_color = TEXT_NORMAL
-                                btn.config(fg=self.main_color)
+                                btn.config(fg=self.main_color, bg="#E8F0F2")
         def run(self):  
                 self.win.mainloop()  
 
