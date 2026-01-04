@@ -466,7 +466,7 @@ def preprocess_expression(expr: str) -> str:
         return f'inte({low},{high},"{expr}")'
     
     expr = re.sub(
-        r'inte\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)',
+        r'inte\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^|]+)\s*\)',
         repl_inte,
         expr
     )
@@ -475,7 +475,7 @@ def preprocess_expression(expr: str) -> str:
         return f'sums({low},{high},"{expr}")'
     
     expr = re.sub(
-        r'sums\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)',
+        r'sums\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^(]+)\s*\)',
         repl_sigma,
         expr
     )
@@ -484,16 +484,16 @@ def preprocess_expression(expr: str) -> str:
         return f'muls({low},{high},"{expr}")'
     
     expr = re.sub(
-        r'muls\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)',
+        r'muls\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^|]+)\s*\)',
         repl_muls,
         expr
     )
-    def repl_diff(m):
+    def repl_diff(m: re.Match[str]):
         low, high, expr = m.groups()
-        return f'sums({low},{high},"{expr}")'
+        return f'd_dx({low},{high},"{expr}")'
     
     expr = re.sub(
-        r'sums\(\s*([^,]+)\s*,\s*([^)]+)\s*\)',
+        r'd_dx\(\s*([^,]+)\s*,\s*([^|]+)\s*\)',
         repl_diff,
         expr
     )
@@ -582,7 +582,7 @@ def preprocess_expression(expr: str) -> str:
         expr
     )
     pow_pattern = re.compile(
-        r'(\([^|]*\)|[A-Za-z0-9_.]+)\*\*(\([^|]*\)|[A-Za-z0-9_.]+)'
+        r'(\([^(]*\)|[A-Za-z0-9_.]+)\*\*(\([^,]*\)|[A-Za-z0-9_.]+)'
     )
     while pow_pattern.search(expr):
         expr = pow_pattern.sub(r"Pow(\1,\2)", expr)
@@ -659,7 +659,8 @@ def evaluate_expression(expr: str, simplify_symbolic=True):
         "Pol": Pol,
         "modulo": modulo,
         "sqrt": sqrt,
-        "exp": exp
+        "exp": exp,
+        "inf": float("inf"),
     }
     if complex_choice:
         safe.pop("Rec")
@@ -1070,36 +1071,37 @@ def calc(expr: str, **vars_values):
         # Đảm bảo các hàm lượng giác dùng đúng mode
         # Chuyển các hàm sin, cos, tan sang hàm đã xử lý mode
         local_dict = {
-            "sin": sin, "cos": cos, "tan": tan,
-            "asin": asin, "acos": acos, "atan": atan,
-            "ln": ln,
-            "sums": sums,
-            "muls": muls,
-            "d_dx": d_dx,
-            "inte": inte,
-            "log": log,
-            "pi": pi,
-            "e": e,
-            "comb": comb,
-            "factorial": factorial,
-            "perm": perm, 
-            "pow": Pow,
-            "Pow": Pow,
-            "abs": abs,
-            #"frac": Fraction,
-            "nth_rt": nth_root,
-            "gcd": gcd,
-            "lcm": lcm,
-            "Ran#": Ran_,
-            "RandInt": Randint,
-            "Int": int,
-            "Rnd": Rnd,
-            "Rec": Rec,
-            "Pol": Pol,
-            "modulo": modulo,
-            "sqrt": sqrt,
-            "exp": exp
-        }
+        "sin": sin, "cos": cos, "tan": tan,
+        "asin": asin, "acos": acos, "atan": atan,
+        "ln": ln,
+        "sums": sums,
+        "muls": muls,
+        "d_dx": d_dx,
+        "inte": inte,
+        "log": log,
+        "pi": pi,
+        "e": e,
+        "comb": comb,
+        "factorial": factorial,
+        "perm": perm, 
+        "pow": Pow,
+        "Pow": Pow,
+        "abs": abs,
+        #"frac": Fraction,
+        "nth_rt": nth_root,
+        "gcd": gcd,
+        "lcm": lcm,
+        "Ran#": Ran_,
+        "RandInt": Randint,
+        "Int": int,
+        "Rnd": Rnd,
+        "Rec": Rec,
+        "Pol": Pol,
+        "modulo": modulo,
+        "sqrt": sqrt,
+        "exp": exp,
+        "inf": float("inf")
+    }
         if complex_choice:
             local_dict.pop("Rec")
             local_dict.pop("Pol")
@@ -1244,5 +1246,6 @@ BASE_DIR_ = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(BASE_DIR_, "run.txt")
 with open(file_path, "w", encoding="utf-8") as f:
     f.writelines(res_)
+print(evaluate_expression('sums(0,inf,((-1)^(x))/(x!))'))
 del res_;
 Ans = 0
