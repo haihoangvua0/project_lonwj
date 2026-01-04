@@ -1,8 +1,8 @@
 Date: 29/12/25
 Remaining to add:
 - Mode: inequality, True/False, 
-- Abs, Pol, Rec, Int, Rnd: core and UI
-- FACT: UI
+- Abs, Pol, Rec, Int, Rnd: core and UI (Done)
+- FACT: UI         (Done)
 - CONST, CONV, RESET, INS -> hardcore UI
 - (More hardcore level 1) Smart delete: both core and hard process UI...
 - (More hardcore level 2) Frame being reused to replace Entry to Text or TreeView...
@@ -14,8 +14,14 @@ This must be process in evaluate_expression func.:
 - Check if the result is tuple: take the information at idx [2] <- NEED to be given in the tuple-giving func..
 In pre-processing func.:
 - re (again) for those like:
-    + "i" -> 1j
-    + "..." -> Rec(r, theta) -> resemble to what 'WE' have done...
-    + Similar to Rec, care Pol func.
-    + modify function Pol and Rec and modulo
+    + "i" -> 1j      (Done 50%)
+    + "..." -> Rec(r, theta) -> resemble to what 'WE' have done... (Done)
+    + Similar to Rec, care Pol func.        (Done)
+    + modify function Pol and Rec and modulo    (Done)
 Just for the core. Moving to UI... Uhm nothing to do left except for what I noted few days ago.
+
+Date: 4/1/26
+NEED to:
+- Create gamma func -> try to use float("inf") in the inte func.
+- Apply gamma func into factorial func.
+- process euler exponentiation.
