@@ -192,8 +192,22 @@ def convert_deg(x: int | float | Fraction | Decimal):
         return returning(x * 200 / pi)
     return returning(x)   # RAD
 # 3. Trig functions (Casio-compatible) + Hypebolic Funcs
-def sin(x: float): return returning(math.sin(_to_radian_if_needed(x)))
-def cos(x: float): return returning(math.cos(_to_radian_if_needed(x)))
+def sin(x: float):
+    a = _to_radian_if_needed(x)
+
+    k = round(a / pi)
+    if abs(a - k * pi) <= 1e-12:
+        return 0
+
+    return returning(math.sin(a))
+def cos(x: float):
+    a = _to_radian_if_needed(x)
+
+    k = round((a - pi/2) / pi)
+    if abs(a - (pi/2 + k * pi)) <= 1e-12:
+        return 0
+
+    return returning(math.cos(a))
 def tan(x: float):
     a = _to_radian_if_needed(x)
     if math.isclose(math.cos(a), 0, abs_tol=1e-15):
@@ -507,14 +521,14 @@ def preprocess_expression(expr: str) -> str:
     # Chia lấy dư và lấy nguyên ([mod])
     # PURE mod: chỉ có a[mod]b
     pure_mod = re.fullmatch(
-        r'(\([^()]+\)|[A-Za-z0-9_.]+)\[mod\](\([^()]+\)|[A-Za-z0-9_.]+)',
+        r'(\([^|]+\)|[A-Za-z0-9_.]+)\[mod\](\([^|]+\)|[A-Za-z0-9_.]+)',
         expr
     )
     if pure_mod:
         a, b = pure_mod.groups()
         return f"modulo({a},{b},ask=True)"
 
-    mod_pattern = re.compile(r'(\([^()]+\)|[A-Za-z0-9_.]+)\[mod\](\([^()]+\)|[A-Za-z0-9_.]+)')
+    mod_pattern = re.compile(r'(\([^|]+\)|[A-Za-z0-9_.]+)\[mod\](\([^|]+\)|[A-Za-z0-9_.]+)')
     # mod trong biểu thức
     while mod_pattern.search(expr):
         expr = mod_pattern.sub(
@@ -557,12 +571,23 @@ def preprocess_expression(expr: str) -> str:
     # -------------------------------
     # power **
     # -------------------------------
+    func_calls = []
+    def protect_func(m):
+        func_calls.append(m.group(0))
+        return f"__FUNC{len(func_calls)-1}__"
+
     expr = re.sub(
-        r'(\([^()]+\)|[A-Za-z0-9_.]+)\*\*(\([^()]+\)|[A-Za-z0-9_.]+)',
-        r'Pow(\1,\2)',
+        r'[A-Za-z_]+\([^()]*\)',
+        protect_func,
         expr
     )
-
+    pow_pattern = re.compile(
+        r'(\([^|]*\)|[A-Za-z0-9_.]+)\*\*(\([^|]*\)|[A-Za-z0-9_.]+)'
+    )
+    while pow_pattern.search(expr):
+        expr = pow_pattern.sub(r"Pow(\1,\2)", expr)
+    for i, f in enumerate(func_calls):
+        expr = expr.replace(f"__FUNC{i}__", f)
     # -------------------------------
     # protect scientific notation
     # -------------------------------
@@ -1204,11 +1229,6 @@ def stor_settings():
     with open(file_path, "r", encoding="utf-8") as f:
         dict_of_setting["Table"] = int(f.readline())
 stor_settings()
-# debug line
-#from time import sleep
-#print("Set data")
-#sleep(1.5)
-#print("Debugging...")
 res_ = []
 res_.append(str(solve_eq("x**2+B", ask=True, B=1))+"\n")
 stor(x=sqrt(2)); 
@@ -1224,10 +1244,5 @@ BASE_DIR_ = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(BASE_DIR_, "run.txt")
 with open(file_path, "w", encoding="utf-8") as f:
     f.writelines(res_)
-#print("Done")
-#sleep(1.5)
-#os.system('cls' if os.name == 'nt' else 'clear')
-#app_open(1);
-#print((temp := evaluate_expression("8sin(60)+3")), type(temp))
 del res_;
 Ans = 0
