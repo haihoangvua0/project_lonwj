@@ -1,3 +1,4 @@
+
 import tkinter as tk  
 import process_front_end as pfe
 import process_complex as pc
@@ -16,9 +17,10 @@ SMART_TOKENS = [
         "inte(", "d_dx(", "sums(", "muls(",
         "*10^", "Int(", "Pol(", "Rec(",
         "RandInt(", "pi", "Rnd(", "Ran#",
-        "i", "^(", "10^",
+        "i", "^(", "10^", "Ans", "inf",
         "exp(", "[mod]", "_C_", "_P_"
 ] + pfe.names + list(pfe.actual_val_const)
+#print(SMART_TOKENS, sep="\n")
 class Calculator_fx:
         #global SHIFT_MODE, ALPHA_MODE, CALC_MODE, SOLVE_MODE
         def __init__(self):  
@@ -34,6 +36,7 @@ class Calculator_fx:
                 self.solve_mode = False
                 self.stor_mode = False
                 self.finish_eval = False
+                self.fact_reg = "S"
                 #self.history = [
                 #        ("", "", False)
                 #] # ("", "", True) True -> có thể mở lại lịch sử... False -> tắt chế độ xem lại lịch sử
@@ -41,7 +44,7 @@ class Calculator_fx:
                 self.temp_value = 0
                 self.extra_norm = [
                         ["OPTN", "CALC", "", "", "inte", "x"],  
-                        [pfe.angle, "sqrt", "^2", "^", "log", "ln"],  
+                        ["inf", "sqrt", "^2", "^", "log", "ln"],  
                         ["_", "degs", "^-1", "sin", "cos", "tan"],  
                         ["Stor", "i", "(", ")", "S<=>D", "M+"]
                 ]
@@ -249,14 +252,14 @@ class Calculator_fx:
                                 self.inputs.insert(pos, text)
                                 self.inputs.icursor(pos)
                         self.output.delete(0, tk.END)
-                elif value in ([",", "_", "!", "="] + pfe.names):
+                elif value in ([",", "_", "!", "=", "inf"] + pfe.names):
                         if self.finish_eval:
                                 self.inputs.delete(0, tk.END)
                                 #self.inputs.insert("Ans")
                                 self.output.delete(0, tk.END)
                                 self.finish_eval = False
                         self.inputs.insert(pos, value)
-                        self.inputs.icursor(pos + 1)
+                        self.inputs.icursor(pos + len(value))
                         self.output.delete(0, tk.END)
                 elif value == "(":
                         if self.finish_eval:
@@ -305,7 +308,10 @@ class Calculator_fx:
                         self.output.delete(0, tk.END)
                 elif value == "SOLVE": 
                         expr = self.inputs.get()
-                        if any(i in expr for i in ["inte", "d_dx", "sums", "muls"]): pass
+                        if any(i in expr for i in ["inte", "d_dx", "sums", "muls"]): 
+                                self.output.delete(0, tk.END)
+                                self.output.insert(0, MATH_ERROR)
+                                return
                         free_symbol = []
                         for i in pfe.names:
                                 if i in expr and not i == "x":
@@ -378,7 +384,32 @@ class Calculator_fx:
                         else:
                                 self.output.insert(0, self.temp_value)
                                 self.regulation = "S"
-                elif value == "FACT" and self.finish_eval: pass
+                elif value == "FACT" and self.finish_eval: 
+                        number = self.output.get()
+                        try:
+                                number = int(number)
+                                if self.fact_reg == "S":
+                                        number = int(number)
+                                        if number >= 1e10: return
+                                        facts = pfe.FACT(number)
+                                        text = ""
+                                        for i, pair in enumerate(facts):
+                                                if i == 0:
+                                                        ba, ex = pair
+                                                        text += f"{ba}^({ex})"
+                                                        continue
+                                                ba, ex = pair
+                                                text += f"*{ba}^({ex})"
+                                        self.output.delete(0, tk.END)
+                                        self.output.insert(0, text)
+                                        self.fact_reg = "N"
+                                else: 
+                                        facts_str = self.output.get()
+                                        number = pfe.evaluate_expression(facts_str)
+                                        self.output.delete(0, tk.END)
+                                        self.output.insert(0, str(number))
+                                        self.fact_reg = "S"
+                        except: pass
                 if self.shift:
                         self.shift = False
                         self.extra_frame.destroy()
@@ -416,6 +447,7 @@ class Calculator_fx:
                         # ưu tiên xoá token dài
                         for token in sorted(SMART_TOKENS, key=len, reverse=True):
                                 L = len(token)
+                                #print(text[pos - L:pos], token)
                                 if pos >= L and text[pos - L:pos] == token:
                                         self.inputs.delete(pos - L, pos)
                                         self.inputs.icursor(pos - L)
@@ -460,6 +492,7 @@ class Calculator_fx:
                                                 return
                                         else: 
                                                 self.regulation = "S"
+                                                self.fact_reg = "S"
                                                 self.finish_eval = True
                                                 self.output.insert(0, str(result))
                                 except Exception as ex:
