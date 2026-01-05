@@ -1,4 +1,3 @@
-
 import tkinter as tk  
 import process_front_end as pfe
 import process_complex as pc
@@ -18,7 +17,8 @@ SMART_TOKENS = [
         "*10^", "Int(", "Pol(", "Rec(",
         "RandInt(", "pi", "Rnd(", "Ran#",
         "i", "^(", "10^", "Ans", "inf",
-        "exp(", "[mod]", "_C_", "_P_"
+        "exp(", "[mod]", "_C_", "_P_",
+        "nth_rt("
 ] + pfe.names + list(pfe.actual_val_const)
 #print(SMART_TOKENS, sep="\n")
 class Calculator_fx:
@@ -44,7 +44,7 @@ class Calculator_fx:
                 self.temp_value = 0
                 self.extra_norm = [
                         ["OPTN", "CALC", "", "", "inte", "x"],  
-                        ["inf", "sqrt", "^2", "^", "log", "ln"],  
+                        ["", "sqrt", "^2", "^", "log", "ln"],  
                         ["_", "degs", "^-1", "sin", "cos", "tan"],  
                         ["Stor", "i", "(", ")", "S<=>D", "M+"]
                 ]
@@ -316,24 +316,26 @@ class Calculator_fx:
                         for i in pfe.names:
                                 if i in expr and not i == "x":
                                         free_symbol.append(i)
-                        if free_symbol:
-                                self.solve_mode = True
-                                self.calc_ing = True
-                                self.solve_expr = expr
-                                self.solve_vars = free_symbol
-                                self.solve_values = {}
-                                self.solve_index = 0
-
-                                self.inputs.delete(0, tk.END)
-                                self.output.delete(0, tk.END)
-                                self.inputs.insert(0, f"{free_symbol[0]}=")
-                        else:
-                                self.output.delete(0, tk.END)
-                                sol = pfe.solve_eq(expr)
-                                if isinstance(sol, list) and len(sol) == 0:
-                                        self.output.insert(0, "No solution.")
+                        try:
+                                if free_symbol:
                                         self.solve_mode = True
-                                self.output.insert(0, sol)
+                                        self.calc_ing = True
+                                        self.solve_expr = expr
+                                        self.solve_vars = free_symbol
+                                        self.solve_values = {}
+                                        self.solve_index = 0
+        
+                                        self.inputs.delete(0, tk.END)
+                                        self.output.delete(0, tk.END)
+                                        self.inputs.insert(0, f"{free_symbol[0]}=")
+                                else:
+                                        self.output.delete(0, tk.END)
+                                        sol = pfe.solve_eq(expr)
+                                        if isinstance(sol, list) and len(sol) == 0:
+                                                self.output.insert(0, "No solution.")
+                                                self.solve_mode = True
+                                        self.output.insert(0, sol)
+                        except: pass
 
                 elif value == "Abs":
                         if self.finish_eval:
@@ -568,19 +570,18 @@ class Calculator_fx:
                         self.inputs.insert(pos, text)
                         self.inputs.icursor(pos+len(text)-1)
                 elif value in "+-*/":
-                        if self.finish_eval or self.calc_ing:
+                        if self.finish_eval:
                                 self.inputs.delete(0, tk.END)
                                 self.finish_eval = False
-                                self.calc_ing = False
                                 self.output.delete(0, tk.END)
                                 self.inputs.insert(0, "Ans" + value)
                                 self.inputs.icursor(4)
                                 return
-                        
+
                         self.inputs.insert(pos, value)
                         self.inputs.icursor(pos+1)
                 elif value in [str(i) for i in range(10)]:
-                        if self.finish_eval or self.calc_ing:
+                        if self.finish_eval:
                                 self.inputs.delete(0, tk.END)
                                 self.finish_eval = False
                                 self.calc_ing = False
