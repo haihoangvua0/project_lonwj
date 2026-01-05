@@ -461,39 +461,34 @@ def preprocess_expression(expr: str) -> str:
     # protect expression argument in inte()
     # inte(a,b,expr)  -> inte(a,b,"expr")
     # -------------------------------
-    def repl_inte(m):
-        low, high, expr = m.groups()
-        return f'inte({low},{high},"{expr}")'
-    
+    # ===============================
+    # Quote expression arguments
+    # inte / sums / muls / d_dx
+    # ===============================
+
+    def quote_third_arg(func):
+        pattern = re.compile(
+            rf'{func}\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*(.+)\)$'
+        )
+
+        def repl(m):
+            a, b, e = m.groups()
+            return f'{func}({a},{b},"{e}")'
+
+        return pattern, repl
+
+    for fname in ("inte", "sums", "muls"):
+        pat, rep = quote_third_arg(fname)
+        if pat.match(expr):
+            expr = pat.sub(rep, expr)
+
+    # d_dx(expr, value) -> d_dx("expr", value)
+    def repl_diff(m):
+        e, v = m.groups()
+        return f'd_dx("{e}",{v})'
+
     expr = re.sub(
-        r'inte\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^|]+)\s*\)',
-        repl_inte,
-        expr
-    )
-    def repl_sigma(m):
-        low, high, expr = m.groups()
-        return f'sums({low},{high},"{expr}")'
-    
-    expr = re.sub(
-        r'sums\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^(]+)\s*\)',
-        repl_sigma,
-        expr
-    )
-    def repl_muls(m):
-        low, high, expr = m.groups()
-        return f'muls({low},{high},"{expr}")'
-    
-    expr = re.sub(
-        r'muls\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^|]+)\s*\)',
-        repl_muls,
-        expr
-    )
-    def repl_diff(m: re.Match[str]):
-        low, high, expr = m.groups()
-        return f'd_dx({low},{high},"{expr}")'
-    
-    expr = re.sub(
-        r'd_dx\(\s*([^,]+)\s*,\s*([^|]+)\s*\)',
+        r'd_dx\(\s*(.+)\s*,\s*([^)]+)\s*\)$',
         repl_diff,
         expr
     )
@@ -582,7 +577,7 @@ def preprocess_expression(expr: str) -> str:
         expr
     )
     pow_pattern = re.compile(
-        r'(\([^(]*\)|[A-Za-z0-9_.]+)\*\*(\([^,]*\)|[A-Za-z0-9_.]+)'
+        r'(\([^+]|[^\*]|[^,]*\)|[A-Za-z0-9_.]+)\*\*(\([^+]|[^\*]|[^,]*\)|[A-Za-z0-9_.]+)'
     )
     while pow_pattern.search(expr):
         expr = pow_pattern.sub(r"Pow(\1,\2)", expr)
@@ -659,8 +654,7 @@ def evaluate_expression(expr: str, simplify_symbolic=True):
         "Pol": Pol,
         "modulo": modulo,
         "sqrt": sqrt,
-        "exp": exp,
-        "inf": float("inf"),
+        "exp": exp
     }
     if complex_choice:
         safe.pop("Rec")
@@ -672,8 +666,7 @@ def evaluate_expression(expr: str, simplify_symbolic=True):
             "Arg": Arg,
             "Conjg": Conjg
         })
-    avail_vars = {k: v for k, v in zip(names, variable)}
-    new_ = avail_vars | {"Ans": Ans} | actual_val_const
+    new_ = {"Ans": Ans} | actual_val_const
     #check = list(new_ | safe)
     from sympy import sympify, radsimp, simplify as sym_simplify
     HAS_SYMPY = True
@@ -686,13 +679,20 @@ def evaluate_expression(expr: str, simplify_symbolic=True):
         s = str(s)
 
     # Nếu SymPy fail -> eval
-
-    safe |= new_
-    res = eval(expr_clean, {"__builtins__": {}}, safe)
-    res = returning(res)
-    Ans = res
-    return res
-
+    try:
+        safe |= new_
+        res = eval(expr_clean, {"__builtins__": {}}, safe)
+        res = returning(res)
+        Ans = res
+        return res
+    except:
+        avail_vars = {k: v for k, v in zip(names, variable)}
+        new_ |= avail_vars
+        safe |= new_
+        res = eval(expr_clean, {"__builtins__": {}}, safe)
+        res = returning(res)
+        Ans = res
+        return res
 
 def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
     global A, B, C, D, E, F, x, y, z, M, actual_val_const, Ans
@@ -1009,6 +1009,7 @@ def d_dx(expression: str, val: int | None = None):
 def inte(low: float, high: float, expression: str, var: str = "x"):
     from sympy import symbols, integrate, sympify
     x = symbols(var)
+    #print(expression)
     expr = sympify(preprocess_expression(expression))
     res = (integrate(expr, (x, low, high)))
     if res.is_real:
@@ -1246,6 +1247,6 @@ BASE_DIR_ = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(BASE_DIR_, "run.txt")
 with open(file_path, "w", encoding="utf-8") as f:
     f.writelines(res_)
-print(evaluate_expression('sums(0,inf,((-1)^(x))/(x!))'))
 del res_;
+print(preprocess_expression("d_dx(sums(0,9,x), 90)"))
 Ans = 0
