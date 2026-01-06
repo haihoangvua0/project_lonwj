@@ -220,7 +220,7 @@ class Calculator_fx:
                 if value == "^":
                         if self.finish_eval:
                                 self.inputs.delete(0, tk.END)
-                                self.inputs.insert("Ans")
+                                self.inputs.insert(0, "Ans")
                                 self.output.delete(0, tk.END)
                                 self.finish_eval = False
                         expr = self.inputs.get()
@@ -238,7 +238,7 @@ class Calculator_fx:
                         expr = self.inputs.get()
                         if self.finish_eval:
                                 self.inputs.delete(0, tk.END)
-                                self.inputs.insert("Ans")
+                                self.inputs.insert(0, "Ans")
                                 self.output.delete(0, tk.END)
                                 self.finish_eval = False
                         expr = self.inputs.get()
@@ -299,10 +299,10 @@ class Calculator_fx:
                                         self.inputs.icursor(pos+1)
                                         self.output.delete(0, tk.END)
                 elif value in ["inte", "frac", "sqrt", "log", "ln",
-                               "sin", "cos", "tan", "asin", "acos", "atan"
+                               "sin", "cos", "tan", "asin", "acos", "atan",
                                "d_dx", "sums", "muls", "exp"]:
                         expr = self.inputs.get()
-                        text = ("*" if (pos > 0 and expr[pos-1] in (pfe.names + ["Ans"])) else "") + value + "()"
+                        text = ("*" if (pos > 0 and (not expr[pos-1].isdigit())) else "") + value + "()"
                         self.inputs.insert(pos, text)
                         self.inputs.icursor(pos + len(text) - 1)
                         self.output.delete(0, tk.END)
@@ -333,7 +333,7 @@ class Calculator_fx:
                                         sol = pfe.solve_eq(expr)
                                         if isinstance(sol, list) and len(sol) == 0:
                                                 self.output.insert(0, "No solution.")
-                                                self.solve_mode = True
+                                                self.solve_mode = False
                                         self.output.insert(0, sol)
                         except: pass
 
@@ -483,16 +483,16 @@ class Calculator_fx:
                                                         self.output.insert(0, f"r={result[0]}, {pfe.theta_symbol}={result[1]}")
                                                 elif result[-1] == "rec":
                                                         self.output.insert(0, f"x={result[0]}, y={result[1]}")
-                                        elif complex_choice:
-                                                if isinstance(result, complex):
+                                        elif isinstance(result, complex):
+                                                if complex_choice:
                                                         self.output.insert(0, pc.format_complex_output(str(result)))
-                                        #print(pfe.Ans)
-                                        elif isinstance(result, str): 
-                                                self.output.insert(0, MATH_ERROR) 
-                                                #self.regulation = "S"
+                                                else:
+                                                        self.output.insert(0, str(result))
+                                        elif isinstance(result, str):
+                                                self.output.insert(0, MATH_ERROR)
                                                 self.finish_eval = True
                                                 return
-                                        else: 
+                                        else:
                                                 self.regulation = "S"
                                                 self.fact_reg = "S"
                                                 self.finish_eval = True
@@ -524,6 +524,8 @@ class Calculator_fx:
                                                         self.inputs.insert(0, self.calc_expr)
 
                                                         self.calc_mode = True
+                                                        self.calc_ing = True
+                                                        self.calc_index = -1
                                                         self.finish_eval = True
                                         except Exception as ex:
                                                 self.output.delete(0, tk.END)
@@ -535,7 +537,7 @@ class Calculator_fx:
                                                 val = pfe.evaluate_expression(self.inputs.get().split("=")[1])
                                                 self.solve_values[current_var] = val
 
-                                                self.calc_index += 1
+                                                self.solve_index += 1
 
                                                 # Còn biến tiếp
                                                 if self.solve_index < len(self.solve_vars):
@@ -545,15 +547,15 @@ class Calculator_fx:
                                                 # Tính xong
                                                         self.inputs.delete(0, tk.END)
                                                         self.output.delete(0, tk.END)
-                                                        res = pfe.solve_eq(expr=self.solve_expr, **self.calc_values)
+                                                        res = pfe.solve_eq(expr=self.solve_expr, **self.solve_values)
                                                         if isinstance(res, list) and len(res) == 0:
-                                                                #self.output.delete(0, tk.END)
                                                                 self.inputs.insert(0, self.solve_expr)
                                                                 self.output.insert(0, "No Solution.")
                                                         self.output.insert(0, str(res))
                                                         self.inputs.insert(0, self.solve_expr)
 
                                                         self.solve_mode = False
+                                                        self.calc_ing = False
                                         except Exception as ex:
                                                 self.output.delete(0, tk.END)
                                                 self.output.insert(0, ex)
@@ -575,7 +577,7 @@ class Calculator_fx:
                                 self.finish_eval = False
                                 self.output.delete(0, tk.END)
                                 self.inputs.insert(0, "Ans" + value)
-                                self.inputs.icursor(4)
+                                self.inputs.icursor(tk.END)
                                 return
 
                         self.inputs.insert(pos, value)
@@ -587,7 +589,7 @@ class Calculator_fx:
                                 self.calc_ing = False
                                 self.output.delete(0, tk.END)
                                 self.inputs.insert(0, value)
-                                self.inputs.icursor(4)
+                                self.inputs.icursor(tk.END)
                                 return
                         self.inputs.insert(pos, value)
                         self.inputs.icursor(pos+1)
