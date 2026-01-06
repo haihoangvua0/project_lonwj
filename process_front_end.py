@@ -452,171 +452,233 @@ def modulo(a: int, b: int, /, ask: bool = False):
     return res
 
 # 6. Expression engine
-def preprocess_expression(expr: str) -> str:
-    import re
+def preprocess_expression(expr: str) -> str:  
+    import re  
+  
+    #expr = expr.replace("^", "**")  
+    expr = re.sub(r'\s+', '', expr)  
+    # -------------------------------  
+    # protect expression argument in inte()  
+    # inte(a,b,expr)  -> inte(a,b,"expr")  
+    # -------------------------------  
+    def repl_inte(m):  
+        low, high, expr = m.groups()  
+        return f'inte({low},{high},"{expr}")'  
+  
+    expr = re.sub(  
+        r'inte\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*(.+)\s*\)$',  
+        repl_inte,  
+        expr  
+    )  
+    def repl_sigma(m):  
+        low, high, expr = m.groups()  
+        return f'sums({low},{high},"{expr}")'  
+      
+    expr = re.sub(  
+        r'sums\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*(.+)\s*\)$',  
+        repl_sigma,  
+        expr  
+    )  
+    def repl_muls(m):  
+        low, high, expr = m.groups()  
+        return f'muls({low},{high},"{expr}")'  
+      
+    expr = re.sub(  
+        r'muls\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*(.+)\s*\)$',  
+        repl_muls,  
+        expr  
+    )  
+    #a = (re.compile(r'sums\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^(]|[A-Za-z0-9.]+)\s*\)'))  
+#    print(a.search(expr))  
+    def repl_diff(m):  
+        expr, val = m.groups()  
+        return f'd_dx("{expr}", {val})'  
+      
+    expr = re.sub(  
+        r'd_dx\(\s*(.+?)\s*,\s*([^)]+)\s*\)',  
+        repl_diff,  
+        expr  
+    )  
+  
+    pattern = re.compile(r'\|([^|]+)\|')  
+  
+    while pattern.search(expr):  
+        expr = pattern.sub(r'abs(\1)', expr)  
+    # -------------------------------  
+    # factorial (Casio-style)  
+    # -------------------------------  
+    while '!' in expr:  
+        expr = re.sub(  
+            r'(\([^()]+\)|[A-Za-z0-9_.]+)!',  
+            r'factorial(\1)',  
+            expr  
+        )  
+    # (biểu thức)%  ->  (biểu thức)/100  
+    while "%" in expr:  
+        expr = re.sub(  
+            r'(\([^()]+\)|[A-Za-z0-9_.]+)%',  
+            r'(\1)/100',  
+            expr  
+        )  
+    # Chia lấy dư và lấy nguyên ([mod])  
+    # PURE mod: chỉ có a[mod]b  
+    pure_mod = re.fullmatch(  
+        r'(\([^|]+\)|[A-Za-z0-9_.]+)\[mod\](\([^|]+\)|[A-Za-z0-9_.]+)',  
+        expr  
+    )  
+    if pure_mod:  
+        a, b = pure_mod.groups()  
+        return f"modulo({a},{b},ask=True)"  
+  
+    mod_pattern = re.compile(r'(\([^|]+\)|[A-Za-z0-9_.]+)\[mod\](\([^|]+\)|[A-Za-z0-9_.]+)')  
+    # mod trong biểu thức  
+    while mod_pattern.search(expr):  
+        expr = mod_pattern.sub(  
+            r'modulo(\1,\2)',  
+            expr  
+        )  
+  
+    # x2 độ gian nan với Pol và Rec  
+    pure_pol = re.fullmatch(  
+        r'Pol\(([^()]+),([^()]+)\)',  
+        expr  
+    )  
+    if pure_pol:  
+        a, b = pure_pol.groups()  
+        return f"Pol({a},{b},ask=True)"  
+  
+    pure_rec = re.fullmatch(  
+        r'Rec\(([^()]+),([^()]+)\)',  
+        expr  
+    )  
+    if pure_rec:  
+        a, b = pure_rec.groups()  
+        return f"Rec({a},{b},ask=True)"  
+    # -------------------------------  
+    # nCr / nPr  
+    # -------------------------------  
+    expr = re.sub(  
+        r'(\([^()]+\)|[A-Za-z0-9_.]+)_C_(\([^()]+\)|[A-Za-z0-9_.]+)',  
+        r'comb(\1,\2)',  
+        expr  
+    )  
+    expr = re.sub(  
+        r'(\([^()]+\)|[A-Za-z0-9_.]+)_P_(\([^()]+\)|[A-Za-z0-9_.]+)',  
+        r'perm(\1,\2)',  
+        expr  
+    )  
+  
+    # -------------------------------  
+    # power **  
+    # -------------------------------  
+    func_calls = []  
+    def protect_func(m):  
+        func_calls.append(m.group(0))  
+        return f"__FUNC{len(func_calls)-1}__"  
+  
+    expr = re.sub(  
+        r'[A-Za-z_]+\([^()]*\)',  
+        protect_func,  
+        expr  
+    )  
+    def find_matching_paren(s: str, open_idx: int) -> int:
+        depth = 1
+        i = open_idx + 1
+        while i < len(s):
+            if s[i] == '(':
+                depth += 1
+            elif s[i] == ')':
+                depth -= 1
+                if depth == 0:
+                    return i
+            i += 1
+        raise ValueError("Unmatched parenthesis in power")
 
-    expr = expr.replace("^", "**")
-    expr = re.sub(r'\s+', '', expr)
-    # -------------------------------
-    # protect expression argument in inte()
-    # inte(a,b,expr)  -> inte(a,b,"expr")
-    # -------------------------------
-    # ===============================
-    # Quote expression arguments
-    # inte / sums / muls / d_dx
-    # ===============================
+    def find_base_start(s: str, caret_idx: int) -> int:
+        """
+        caret_idx trỏ vào '^'
+        tìm base ngay trước nó
+        """
+        i = caret_idx - 1
 
-    def quote_third_arg(func):
-        pattern = re.compile(
-            rf'{func}\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*(.+)\)$'
-        )
+        # case 1: base là ngoặc đóng (...)
+        if i >= 0 and s[i] == ')':
+            depth = 1
+            i -= 1
+            while i >= 0:
+                if s[i] == ')':
+                    depth += 1
+                elif s[i] == '(':
+                    depth -= 1
+                    if depth == 0:
+                        return i
+                i -= 1
+            raise ValueError("Unmatched parenthesis in base")
 
-        def repl(m):
-            a, b, e = m.groups()
-            return f'{func}({a},{b},"{e}")'
+        # case 2: base là symbol / number
+        while i >= 0 and (s[i].isalnum() or s[i] in '._'):
+            i -= 1
+        return i + 1
 
-        return pattern, repl
+    def parse_power(expr: str) -> str:
+        while '^(' in expr:
+            idx = expr.rfind('^(')   # PHẢI NHẤT → right associative
 
-    for fname in ("inte", "sums", "muls"):
-        pat, rep = quote_third_arg(fname)
-        if pat.match(expr):
-            expr = pat.sub(rep, expr)
+            base_start = find_base_start(expr, idx)
+            base = expr[base_start:idx]
 
-    # d_dx(expr, value) -> d_dx("expr", value)
-    def repl_diff(m):
-        e, v = m.groups()
-        return f'd_dx("{e}",{v})'
+            open_paren = idx + 1  # trỏ vào '('
+            close_paren = find_matching_paren(expr, open_paren)
 
-    expr = re.sub(
-        r'd_dx\(\s*(.+)\s*,\s*([^)]+)\s*\)$',
-        repl_diff,
-        expr
-    )
+            exponent = expr[open_paren + 1:close_paren]
 
-    pattern = re.compile(r'\|([^|]+)\|')
+            replacement = f'(Pow({base},{exponent}))'
 
-    while pattern.search(expr):
-        expr = pattern.sub(r'abs(\1)', expr)
-    # -------------------------------
-    # factorial (Casio-style)
-    # -------------------------------
-    while '!' in expr:
-        expr = re.sub(
-            r'(\([^()]+\)|[A-Za-z0-9_.]+)!',
-            r'factorial(\1)',
-            expr
-        )
-    # (biểu thức)%  ->  (biểu thức)/100
-    while "%" in expr:
-        expr = re.sub(
-            r'(\([^()]+\)|[A-Za-z0-9_.]+)%',
-            r'(\1)/100',
-            expr
-        )
-    # Chia lấy dư và lấy nguyên ([mod])
-    # PURE mod: chỉ có a[mod]b
-    pure_mod = re.fullmatch(
-        r'(\([^|]+\)|[A-Za-z0-9_.]+)\[mod\](\([^|]+\)|[A-Za-z0-9_.]+)',
-        expr
-    )
-    if pure_mod:
-        a, b = pure_mod.groups()
-        return f"modulo({a},{b},ask=True)"
+            expr = (
+                expr[:base_start]
+                + replacement
+                + expr[close_paren + 1:]
+            )
 
-    mod_pattern = re.compile(r'(\([^|]+\)|[A-Za-z0-9_.]+)\[mod\](\([^|]+\)|[A-Za-z0-9_.]+)')
-    # mod trong biểu thức
-    while mod_pattern.search(expr):
-        expr = mod_pattern.sub(
-            r'modulo(\1,\2)',
-            expr
-        )
+        return expr
 
-    # x2 độ gian nan với Pol và Rec
-    pure_pol = re.fullmatch(
-        r'Pol\(([^()]+),([^()]+)\)',
-        expr
-    )
-    if pure_pol:
-        a, b = pure_pol.groups()
-        return f"Pol({a},{b},ask=True)"
-
-    pure_rec = re.fullmatch(
-        r'Rec\(([^()]+),([^()]+)\)',
-        expr
-    )
-    if pure_rec:
-        a, b = pure_rec.groups()
-        return f"Rec({a},{b},ask=True)"
-
-
-    # -------------------------------
-    # nCr / nPr
-    # -------------------------------
-    expr = re.sub(
-        r'(\([^()]+\)|[A-Za-z0-9_.]+)_C_(\([^()]+\)|[A-Za-z0-9_.]+)',
-        r'comb(\1,\2)',
-        expr
-    )
-    expr = re.sub(
-        r'(\([^()]+\)|[A-Za-z0-9_.]+)_P_(\([^()]+\)|[A-Za-z0-9_.]+)',
-        r'perm(\1,\2)',
-        expr
-    )
-
-    # -------------------------------
-    # power **
-    # -------------------------------
-    func_calls = []
-    def protect_func(m):
-        func_calls.append(m.group(0))
-        return f"__FUNC{len(func_calls)-1}__"
-
-    expr = re.sub(
-        r'[A-Za-z_]+\([^()]*\)',
-        protect_func,
-        expr
-    )
-    pow_pattern = re.compile(
-        r'(\([^+]|[^\*]|[^,]*\)|[A-Za-z0-9_.]+)\*\*(\([^+]|[^\*]|[^,]*\)|[A-Za-z0-9_.]+)'
-    )
-    while pow_pattern.search(expr):
-        expr = pow_pattern.sub(r"Pow(\1,\2)", expr)
-    for i, f in enumerate(func_calls):
-        expr = expr.replace(f"__FUNC{i}__", f)
-    # -------------------------------
-    # protect scientific notation
-    # -------------------------------
-    sci_pattern = re.compile(r'\d+(?:\.\d+)?e[+-]?\d+')
-    sci_tokens = []
-    expr = sci_pattern.sub(
-        lambda m: f"__SCI{sci_tokens.append(m.group(0)) or len(sci_tokens)-1}__",
-        expr
-    )
-
-    # -------------------------------
-    # implicit multiplication
-    # -------------------------------
-    funcs = [
-        "sqrt", "sin", "cos", "tan", "asin", "acos", "atan",
-        "log", "ln", "exp", "sums", "muls", "integral",
-        "nth_rt", "pow", "Pow", "abs", "factorial", "gcd", "lcm",
-        "modulo"
-    ] + list(actual_val_const)
-
-    for f in funcs:
-        expr = re.sub(rf'(\d)({f})', r'\1*\2', expr)
-
-    expr = re.sub(r'(\d)\(', r'\1*(', expr)
-    expr = re.sub(r'\)(\d|[A-Za-z])', r')*\1', expr)
-    expr = re.sub(r'(\d)([A-Za-z])', r'\1*\2', expr)
-    expr = re.sub(r'([A-Za-z])(?=pi)', r'\1*', expr)
-
-    # -------------------------------
-    # restore scientific notation
-    # -------------------------------
-    for i, val in enumerate(sci_tokens):
-        expr = expr.replace(f"__SCI{i}__", val)
-
+    expr = parse_power(expr)
+    for i, f in enumerate(func_calls):  
+        expr = expr.replace(f"__FUNC{i}__", f)  
+    # -------------------------------  
+    # protect scientific notation  
+    # -------------------------------  
+    sci_pattern = re.compile(r'\d+(?:\.\d+)?e[+-]?\d+')  
+    sci_tokens = []  
+    expr = sci_pattern.sub(  
+        lambda m: f"__SCI{sci_tokens.append(m.group(0)) or len(sci_tokens)-1}__",  
+        expr  
+    )  
+  
+    # -------------------------------  
+    # implicit multiplication  
+    # -------------------------------  
+    funcs = [  
+        "sqrt", "sin", "cos", "tan", "asin", "acos", "atan",  
+        "log", "ln", "exp", "sums", "muls", "integral",  
+        "nth_rt", "pow", "Pow", "abs", "factorial", "gcd", "lcm",  
+        "modulo"  
+    ] + list(actual_val_const)  
+  
+    for f in funcs:  
+        expr = re.sub(rf'(\d)({f})', r'\1*\2', expr)  
+  
+    expr = re.sub(r'(\d)\(', r'\1*(', expr)  
+    expr = re.sub(r'\)(\d|[A-Za-z])', r')*\1', expr)  
+    expr = re.sub(r'(\d)([A-Za-z])', r'\1*\2', expr)  
+    expr = re.sub(r'([A-Za-z])(?=pi)', r'\1*', expr)  
+  
+    # -------------------------------  
+    # restore scientific notation  
+    # -------------------------------  
+    for i, val in enumerate(sci_tokens):  
+        expr = expr.replace(f"__SCI{i}__", val)  
+  
     return expr
 
 # Central function map used for eval/sympify locals (keeps places consistent)
@@ -679,26 +741,19 @@ def evaluate_expression(expr: str, simplify_symbolic=True):
         s = str(s)
 
     # Nếu SymPy fail -> eval
-    try:
-        safe |= new_
-        res = eval(expr_clean, {"__builtins__": {}}, safe)
-        res = returning(res)
-        Ans = res
-        return res
-    except:
-        avail_vars = {k: v for k, v in zip(names, variable)}
-        new_ |= avail_vars
-        safe |= new_
-        res = eval(expr_clean, {"__builtins__": {}}, safe)
-        res = returning(res)
-        Ans = res
-        return res
+    avail_vars = {k: v for k, v in zip(names, variable)}
+    new_ |= avail_vars
+    safe |= new_
+    res = eval(expr_clean, {"__builtins__": {}}, safe)
+    res = returning(res)
+    Ans = res
+    return res
 
 def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
     global A, B, C, D, E, F, x, y, z, M, actual_val_const, Ans
     from sympy import sympify, Eq, Symbol, solve
     #try:
-    expr = expr.replace("^", "**")
+    #expr = expr.replace("^", "**")
 
     # Nếu không có dấu "=", coi là =0
     if "=" not in expr:
@@ -1248,5 +1303,5 @@ file_path = os.path.join(BASE_DIR_, "run.txt")
 with open(file_path, "w", encoding="utf-8") as f:
     f.writelines(res_)
 del res_;
-print(preprocess_expression("d_dx(sums(0,9,x), 90)"))
+#print(preprocess_expression("30"))
 Ans = 0
