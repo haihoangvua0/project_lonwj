@@ -1,4 +1,5 @@
 #print("RUNNING...")
+# Note: There are still bugs. Cannot run immediately.
 """ Backend module for FX-580 simulator (functions collected & refined) """
 import math
 from decimal import Decimal, getcontext
@@ -622,7 +623,7 @@ def preprocess_expression(expr: str) -> str:
 
     def parse_power(expr: str) -> str:
         while '^(' in expr:
-            idx = expr.rfind('^(')   # PHẢI NHẤT → right associative
+            idx = expr.rfind('^(')   # PHẢI NHẤT -> right associative
 
             base_start = find_base_start(expr, idx)
             base = expr[base_start:idx]
@@ -654,10 +655,7 @@ def preprocess_expression(expr: str) -> str:
         lambda m: f"__SCI{sci_tokens.append(m.group(0)) or len(sci_tokens)-1}__",  
         expr  
     )  
-  
-    # -------------------------------  
-    # implicit multiplication  
-    # -------------------------------  
+    
     funcs = [  
         "sqrt", "sin", "cos", "tan", "asin", "acos", "atan",  
         "log", "ln", "exp", "sums", "muls", "integral",  
@@ -665,14 +663,20 @@ def preprocess_expression(expr: str) -> str:
         "modulo"  
     ] + list(actual_val_const)  
   
-    for f in funcs:  
-        expr = re.sub(rf'(\d)({f})', r'\1*\2', expr)  
-  
+    for f in sorted(funcs, key=len, reverse=True):  
+        expr = re.sub(rf'(\d)({f})', r'\1*\2', expr) 
+    # -------------------------------  
+    # implicit multiplication  
+    # -------------------------------   
     expr = re.sub(r'(\d)\(', r'\1*(', expr)  
     expr = re.sub(r'\)(\d|[A-Za-z])', r')*\1', expr)  
     expr = re.sub(r'(\d)([A-Za-z])', r'\1*\2', expr)  
     expr = re.sub(r'([A-Za-z])(?=pi)', r'\1*', expr)  
-  
+    expr = re.sub(
+        r'([A-Za-z_][A-Za-z0-9_]*)\s*(Ans|pi|e)',
+        r'\1*\2',
+        expr
+    )
     # -------------------------------  
     # restore scientific notation  
     # -------------------------------  
@@ -1303,5 +1307,5 @@ file_path = os.path.join(BASE_DIR_, "run.txt")
 with open(file_path, "w", encoding="utf-8") as f:
     f.writelines(res_)
 del res_;
-#print(preprocess_expression("30"))
+print(preprocess_expression("AnsxA"))
 Ans = 0
