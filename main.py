@@ -247,12 +247,12 @@ class Calculator_fx:
                         if len(expr) > 0 and pos > 0:
                                 if not expr[pos-1] in ["+", "-", "*", "/", "("]:
                                         self.inputs.insert(pos, text)
-                                        self.inputs.icursor(pos + len(text) - 1)
+                                        self.inputs.icursor(pos + len(text))
                         else:
                                 self.inputs.insert(pos, text)
                                 self.inputs.icursor(pos)
                         self.output.delete(0, tk.END)
-                elif value in ([",", "_", "!", "=", "inf"] + pfe.names):
+                elif value in ([",", "_", "!", "="] + pfe.names):
                         if self.finish_eval:
                                 self.inputs.delete(0, tk.END)
                                 #self.inputs.insert("Ans")
@@ -371,9 +371,9 @@ class Calculator_fx:
                                         self.output.insert(0, str(res))
                                         self.regulation = "S"
                                         self.finish_eval = True
-                                except:
+                                except Exception as ex:
                                         self.output.delete(0, tk.END)
-                                        self.output.insert(0, MATH_ERROR)
+                                        self.output.insert(0, ex)
                                         self.finish_eval = True
                 elif value == "S<=>D" and self.finish_eval:
                         expr = self.inputs.get()
@@ -525,9 +525,9 @@ class Calculator_fx:
 
                                                         self.calc_mode = True
                                                         self.finish_eval = True
-                                        except:
+                                        except Exception as ex:
                                                 self.output.delete(0, tk.END)
-                                                self.output.insert(0, MATH_ERROR)
+                                                self.output.insert(0, ex)
                                                 self.finish_eval = True
                                 elif self.solve_mode:
                                         try:
@@ -554,9 +554,9 @@ class Calculator_fx:
                                                         self.inputs.insert(0, self.solve_expr)
 
                                                         self.solve_mode = False
-                                        except:
+                                        except Exception as ex:
                                                 self.output.delete(0, tk.END)
-                                                self.output.insert(0, MATH_ERROR)
+                                                self.output.insert(0, ex)
                                                 self.finish_eval = True
 
                 elif value == "OFF":
