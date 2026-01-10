@@ -1,5 +1,3 @@
-#print("RUNNING...")
-# Note: There are still bugs. Cannot run immediately.
 """ Backend module for FX-580 simulator (functions collected & refined) """
 import math
 from decimal import Decimal, getcontext
@@ -453,9 +451,10 @@ def modulo(a: int, b: int, /, ask: bool = False):
     return res
 
 # 6. Expression engine
-def preprocess_expression(expr: str) -> str:  
+def preprocess_expression(expr: str) -> str: 
+    global names 
     import re  
-  
+
     #expr = expr.replace("^", "**")  
     expr = re.sub(r'\s+', '', expr)  
     # -------------------------------  
@@ -465,7 +464,7 @@ def preprocess_expression(expr: str) -> str:
     def repl_inte(m):  
         low, high, expr = m.groups()  
         return f'inte({low},{high},"{expr}")'  
-  
+
     expr = re.sub(  
         r'inte\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*(.+)\s*\)$',  
         repl_inte,  
@@ -474,7 +473,7 @@ def preprocess_expression(expr: str) -> str:
     def repl_sigma(m):  
         low, high, expr = m.groups()  
         return f'sums({low},{high},"{expr}")'  
-      
+
     expr = re.sub(  
         r'sums\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*(.+)\s*\)$',  
         repl_sigma,  
@@ -483,26 +482,24 @@ def preprocess_expression(expr: str) -> str:
     def repl_muls(m):  
         low, high, expr = m.groups()  
         return f'muls({low},{high},"{expr}")'  
-      
+
     expr = re.sub(  
         r'muls\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*(.+)\s*\)$',  
         repl_muls,  
         expr  
-    )  
-    #a = (re.compile(r'sums\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^(]|[A-Za-z0-9.]+)\s*\)'))  
-#    print(a.search(expr))  
+    )   
     def repl_diff(m):  
         expr, val = m.groups()  
         return f'd_dx("{expr}", {val})'  
-      
+
     expr = re.sub(  
         r'd_dx\(\s*(.+?)\s*,\s*([^)]+)\s*\)',  
         repl_diff,  
         expr  
     )  
-  
+
     pattern = re.compile(r'\|([^|]+)\|')  
-  
+
     while pattern.search(expr):  
         expr = pattern.sub(r'abs(\1)', expr)  
     # -------------------------------  
@@ -530,7 +527,7 @@ def preprocess_expression(expr: str) -> str:
     if pure_mod:  
         a, b = pure_mod.groups()  
         return f"modulo({a},{b},ask=True)"  
-  
+
     mod_pattern = re.compile(r'(\([^|]+\)|[A-Za-z0-9_.]+)\[mod\](\([^|]+\)|[A-Za-z0-9_.]+)')  
     # mod trong biểu thức  
     while mod_pattern.search(expr):  
@@ -538,7 +535,7 @@ def preprocess_expression(expr: str) -> str:
             r'modulo(\1,\2)',  
             expr  
         )  
-  
+
     # x2 độ gian nan với Pol và Rec  
     pure_pol = re.fullmatch(  
         r'Pol\(([^()]+),([^()]+)\)',  
@@ -547,7 +544,7 @@ def preprocess_expression(expr: str) -> str:
     if pure_pol:  
         a, b = pure_pol.groups()  
         return f"Pol({a},{b},ask=True)"  
-  
+
     pure_rec = re.fullmatch(  
         r'Rec\(([^()]+),([^()]+)\)',  
         expr  
@@ -568,7 +565,7 @@ def preprocess_expression(expr: str) -> str:
         r'perm(\1,\2)',  
         expr  
     )  
-  
+
     # -------------------------------  
     # power **  
     # -------------------------------  
@@ -576,7 +573,7 @@ def preprocess_expression(expr: str) -> str:
     def protect_func(m):  
         func_calls.append(m.group(0))  
         return f"__FUNC{len(func_calls)-1}__"  
-  
+
     expr = re.sub(  
         r'[A-Za-z_]+\([^()]*\)',  
         protect_func,  
@@ -642,7 +639,30 @@ def preprocess_expression(expr: str) -> str:
             )
 
         return expr
-
+    # Do scientific num is protected -> ...
+    if "e" in expr:
+        def replace_e_pow(expr=expr):
+            i = 0
+            res = ""
+            while i < len(expr):
+                if expr[i] == 'e' and expr[i+1:i+3] == '^(':
+                    j = i + 3
+                    cnt = 1
+                    while j < len(expr) and cnt:
+                        if expr[j] == '(':
+                            cnt += 1
+                        elif expr[j] == ')':
+                            cnt -= 1
+                        j += 1
+        
+                    inside = expr[i+3:j-1]
+                    res += f"exp({inside})"
+                    i = j
+                else:
+                    res += expr[i]
+                    i += 1
+            return res
+        expr = replace_e_pow()
     expr = parse_power(expr)
     for i, f in enumerate(func_calls):  
         expr = expr.replace(f"__FUNC{i}__", f)  
@@ -655,14 +675,14 @@ def preprocess_expression(expr: str) -> str:
         lambda m: f"__SCI{sci_tokens.append(m.group(0)) or len(sci_tokens)-1}__",  
         expr  
     )  
-    
+
     funcs = [  
         "sqrt", "sin", "cos", "tan", "asin", "acos", "atan",  
         "log", "ln", "exp", "sums", "muls", "integral",  
         "nth_rt", "pow", "Pow", "abs", "factorial", "gcd", "lcm",  
         "modulo"  
     ] + list(actual_val_const)  
-  
+
     for f in sorted(funcs, key=len, reverse=True):  
         expr = re.sub(rf'(\d)({f})', r'\1*\2', expr) 
     # -------------------------------  
@@ -671,25 +691,27 @@ def preprocess_expression(expr: str) -> str:
     expr = re.sub(r'(\d)\(', r'\1*(', expr)  
     expr = re.sub(r'\)(\d|[A-Za-z])', r')*\1', expr)  
     expr = re.sub(r'(\d)([A-Za-z])', r'\1*\2', expr)  
-    expr = re.sub(r'([A-Za-z])(?=pi)', r'\1*', expr)  
-    expr = re.sub(
-        r'([A-Za-z_][A-Za-z0-9_]*)\s*(Ans|pi|e)',
-        r'\1*\2',
-        expr
-    )
+    #expr = re.sub(r'([A-Za-z])(?=pi)', r'\1*', expr)  
+    new = names + ["pi", "e", "Ans"]
+    for i in sorted(new, key=len, reverse=True):
+        if re.compile(r"({i})([A-Za-z])"): continue
+        expr = re.sub(rf"([A-Za-z0-9_.])({i})", r"\1*\2", expr)
     # -------------------------------  
     # restore scientific notation  
     # -------------------------------  
     for i, val in enumerate(sci_tokens):  
         expr = expr.replace(f"__SCI{i}__", val)  
-  
+
     return expr
 
 # Central function map used for eval/sympify locals (keeps places consistent)
 # Define after helper functions so referenced callables exist.
 
-def evaluate_expression(expr: str, simplify_symbolic=True):
-    global variable, A, B, C, D, E, F, x, y, z, M, names, Ans
+def evaluate_expression(expr: str,
+                        *,
+                        allow_complex_radical=False,
+                        simplify_symbolic=True):
+    global variable, A, B, C, D, E, F, x, y, z, M, names, Ans, app
     expr_clean = preprocess_expression(expr)
     safe = {
         "sin": sin, "cos": cos, "tan": tan,
@@ -700,8 +722,6 @@ def evaluate_expression(expr: str, simplify_symbolic=True):
         "d_dx": d_dx,
         "inte": inte,
         "log": log,
-        "pi": pi,
-        "e": e,
         "comb": comb,
         "factorial": factorial,
         "perm": perm, 
@@ -712,7 +732,7 @@ def evaluate_expression(expr: str, simplify_symbolic=True):
         "nth_rt": nth_root,
         "gcd": gcd,
         "lcm": lcm,
-        "Ran#": Ran_,
+        
         "RandInt": Randint,
         "Int": int,
         "Rnd": Rnd,
@@ -726,7 +746,6 @@ def evaluate_expression(expr: str, simplify_symbolic=True):
         safe.pop("Rec")
         safe.pop("Pol")
         safe.update({
-            "i": 1j,
             "ImP": ImP,
             "ReP": ReP,
             "Arg": Arg,
@@ -735,15 +754,29 @@ def evaluate_expression(expr: str, simplify_symbolic=True):
     new_ = {"Ans": Ans} | actual_val_const
     #check = list(new_ | safe)
     from sympy import sympify, radsimp, simplify as sym_simplify
+    # try:
     HAS_SYMPY = True
-
+    # except:
+    #    HAS_SYMPY = False
     if HAS_SYMPY:
         s = sympify(expr_clean, evaluate=True)
 
         if simplify_symbolic:
             s = sym_simplify(radsimp(s))
-        s = str(s)
-
+        
+        new_s = str(s)
+        if 1 <= new_s.count("sqrt") <= 2 \
+           and not new_s.count("sqrt(sqrt(") > 0 \
+           and not any((i and i != "sqrt") for i in safe) \
+           and app:
+               return new_s
+    safe.update({
+        "pi": pi,
+        "e": e,
+        "Ran#": Ran_
+    } | ({
+        "i": 1j
+    } if complex_choice else {}))
     # Nếu SymPy fail -> eval
     avail_vars = {k: v for k, v in zip(names, variable)}
     new_ |= avail_vars
@@ -874,12 +907,13 @@ def exp(n: int | float | Decimal | Fraction | complex):
     if isinstance(n, complex):
         if not complex_choice:
             raise ValueError(MATH_ERROR)
-        # Detach:
-        new_real_pow = math.exp(n.real)
-        x_ = n.imag
-        new_imag_pow = returning(math.cos(x_)) + returning(math.sin(x_))*1j
-        result = new_real_pow + new_imag_pow
-        return result
+        a = n.real
+        b = n.imag
+        real_part = math.exp(a)
+        imag_part = returning(math.cos(b)) + returning(math.sin(b)) * 1j
+
+        return real_part * imag_part   # 🔥 nhân, không phải cộng
+
     return math.exp(n)
 
 
@@ -1307,5 +1341,5 @@ file_path = os.path.join(BASE_DIR_, "run.txt")
 with open(file_path, "w", encoding="utf-8") as f:
     f.writelines(res_)
 del res_;
-print(preprocess_expression("AnsxA"))
+print(evaluate_expression("e^(2)"))
 Ans = 0
