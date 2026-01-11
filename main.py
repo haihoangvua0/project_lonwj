@@ -300,7 +300,7 @@ class Calculator_fx:
                                         self.output.delete(0, tk.END)
                 elif value in ["inte", "frac", "sqrt", "log", "ln",
                                "sin", "cos", "tan", "asin", "acos", "atan",
-                               "d_dx", "sums", "muls", "exp"]:
+                               "d_dx", "sums", "muls", "exp", "10^"]:
                         expr = self.inputs.get()
                         text = ("*" if (pos > 0 and (not expr[pos-1].isdigit())) else "") + value + "()"
                         self.inputs.insert(pos, text)
@@ -311,6 +311,7 @@ class Calculator_fx:
                         if any(i in expr for i in ["inte", "d_dx", "sums", "muls"]): 
                                 self.output.delete(0, tk.END)
                                 self.output.insert(0, MATH_ERROR)
+                                self.finish_eval = True
                                 return
                         free_symbol = []
                         for i in pfe.names:
@@ -488,10 +489,6 @@ class Calculator_fx:
                                                         self.output.insert(0, pc.format_complex_output(str(result)))
                                                 else:
                                                         self.output.insert(0, str(result))
-                                        elif isinstance(result, str):
-                                                self.output.insert(0, MATH_ERROR)
-                                                self.finish_eval = True
-                                                return
                                         else:
                                                 self.regulation = "S"
                                                 self.fact_reg = "S"
