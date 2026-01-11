@@ -20,7 +20,7 @@ class MatrixError(Exception):
         pass
 class MatrixShapeError(MatrixError):
         """
-        Lỗi do kích thước / shape ma trận không hợp lệ
+        Lỗi do kích thước / shape ma trận không hợp lệ \n
         Ví dụ:
         - Nhân hai ma trận khác kích thước
         - Cộng / trừ ma trận khác shape
@@ -28,7 +28,7 @@ class MatrixShapeError(MatrixError):
         pass
 class MatrixPowerError(MatrixError):
         """
-        Lỗi liên quan tới phép lũy thừa ma trận
+        Lỗi liên quan tới phép lũy thừa ma trận\n
         Ví dụ:
         - Ma trận ^ ma trận
         - Ma trận ^ số không nguyên
@@ -141,8 +141,18 @@ class Matrix:
                         raise IndexError("Matrix row index out of range")
                 return self.data[idx]
         def __add__(self, other):
+                if not isinstance(other, Matrix): raise MatrixError("Cannot plus Matrix with number")
                 if not self.m == other.m or not self.n == other.n:
                         raise MatrixShapeError("Cannot plus 2 matrix as they are not in the same size")
+                new_mat = [[0 for _ in range(self.n)] for _ in range(self.m)]
+                for i in range(self.m):
+                        for j in range(self.n):
+                                new_mat[i][j] = self.data[i][j] + other.data[i][j]
+                return Matrix(new_mat)
+        def __sub__(self, other):
+                if not isinstance(other, Matrix): raise MatrixError("Cannot subtract Matrix with number")
+                if not self.m == other.m or not self.n == other.n:
+                        raise MatrixShapeError("Cannot subtract 2 matrix as they are not in the same size")
                 new_mat = [[0 for _ in range(self.n)] for _ in range(self.m)]
                 for i in range(self.m):
                         for j in range(self.n):
@@ -206,5 +216,5 @@ Trn = Matrix.transpose
 Inv = Matrix.inverse # matA ** -1
 if __name__ == "__main__":
         matA = Matrix([[1, 2, 3], [4, 5, 6]])
-        matB = Matrix([[11, 15, 20], [25, 30, 35], [40, 45, 50]])
-        print([Inv(matB)])
+        matB = Matrix([[11, 15, 20], [25, 30, 35]])
+        print(matB - matA)
