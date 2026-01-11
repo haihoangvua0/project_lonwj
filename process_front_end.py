@@ -18,10 +18,67 @@ Ran_ = random.random()
 Rnd = round
 
 MATH_ERROR = "MATH ERROR"
-pi, e = math.pi, math.e
+pi = math.pi
 gcd = math.gcd
 lcm = math.lcm
 
+class euler_num:
+    def __init__(self):
+        self.value = math.e
+    def __add__(self, other):
+        if isinstance(other, euler_num):
+            return self.value + other.value
+        return self.value + other
+    def __sub__(self, other):
+        if isinstance(other, euler_num):
+            return self.value - other.value
+        return self.value - other
+    def __mul__(self, other):
+        if isinstance(other, euler_num):
+            return self.value * other.value
+        return self.value * other
+    def __truediv__(self, other):
+        if isinstance(other, euler_num):
+            return self.value / other.value
+        return self.value / other
+    def __pow__(self, other):
+        if isinstance(other, euler_num):
+            return exp(other.value)
+        return exp(other)
+    def __radd__(self, other):
+        if isinstance(other, euler_num):
+            return other.value + self.value
+        return other + self.value
+    def __rsub__(self, other):
+        if isinstance(other, euler_num):
+            return other.value - self.value
+        return other - self.value
+    def __rmul__(self, other):
+        if isinstance(other, euler_num):
+            return other.value * self.value
+        return other - self.value
+    def __rtruediv__(self, other):
+        if isinstance(other, euler_num):
+            return other.value / self.value
+        return other + self.value
+    def __rpow__(self, other):
+        if isinstance(other, euler_num):
+            return Pow(other.value, self.value)
+        return Pow(other, self.value)
+    def __repr__(self):
+        return f"{self.value}"
+
+    def __float__(self):
+        return self.value
+
+    def __int__(self):
+        return int(self.value)
+
+    def __str__(self):
+        return f"{self.value}"
+    def __format__(self, format_spec):
+        return format(self.value, format_spec)
+e = euler_num()
 getcontext().prec = 50
 
 app = False
@@ -640,29 +697,6 @@ def preprocess_expression(expr: str) -> str:
 
         return expr
     # Do scientific num is protected -> ...
-    if "e" in expr:
-        def replace_e_pow(expr=expr):
-            i = 0
-            res = ""
-            while i < len(expr):
-                if expr[i] == 'e' and expr[i+1:i+3] == '^(':
-                    j = i + 3
-                    cnt = 1
-                    while j < len(expr) and cnt:
-                        if expr[j] == '(':
-                            cnt += 1
-                        elif expr[j] == ')':
-                            cnt -= 1
-                        j += 1
-        
-                    inside = expr[i+3:j-1]
-                    res += f"exp({inside})"
-                    i = j
-                else:
-                    res += expr[i]
-                    i += 1
-            return res
-        expr = replace_e_pow()
     expr = parse_power(expr)
     for i, f in enumerate(func_calls):  
         expr = expr.replace(f"__FUNC{i}__", f)  
@@ -704,12 +738,8 @@ def preprocess_expression(expr: str) -> str:
 
     return expr
 
-# Central function map used for eval/sympify locals (keeps places consistent)
-# Define after helper functions so referenced callables exist.
-
 def evaluate_expression(expr: str,
                         *,
-                        allow_complex_radical=False,
                         simplify_symbolic=True):
     global variable, A, B, C, D, E, F, x, y, z, M, names, Ans, app
     expr_clean = preprocess_expression(expr)
@@ -912,7 +942,7 @@ def exp(n: int | float | Decimal | Fraction | complex):
         real_part = math.exp(a)
         imag_part = returning(math.cos(b)) + returning(math.sin(b)) * 1j
 
-        return real_part * imag_part   # 🔥 nhân, không phải cộng
+        return real_part * imag_part   # nhân, không phải cộng
 
     return math.exp(n)
 
@@ -1341,5 +1371,5 @@ file_path = os.path.join(BASE_DIR_, "run.txt")
 with open(file_path, "w", encoding="utf-8") as f:
     f.writelines(res_)
 del res_;
-print(evaluate_expression("e^(2)"))
+#print(evaluate_expression("e^(2)"))
 Ans = 0
