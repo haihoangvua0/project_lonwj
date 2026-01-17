@@ -1,4 +1,6 @@
 """ Backend module for FX-580 simulator (functions collected & refined) """
+
+# Module needed for all
 import math
 from decimal import Decimal, getcontext
 import os
@@ -7,12 +9,14 @@ from decimal import Decimal
 import cmath
 import random
 
+# Symbol
 theta_symbol = "\u03B8"     
 pi_symbol = "\u03C0"        
 degree = "\u00B0"    
 angle = "\u2220"     
 sqrt_symbol = "\u221A"      
 
+# Default vars needed
 Randint = random.randint
 Ran_ = random.random()
 Rnd = round
@@ -22,6 +26,7 @@ pi = math.pi
 gcd = math.gcd
 lcm = math.lcm
 
+# Hardware object class
 class euler_num:
     def __init__(self):
         self.value = math.e
@@ -78,22 +83,7 @@ class euler_num:
         return f"{self.value}"
     def __format__(self, format_spec):
         return format(self.value, format_spec)
-e = euler_num()
-getcontext().prec = 50
-
-app = False
-complex_choice = True
-def app_open(choice: int = 0):
-    global app
-    app = (choice == True)
-    # Lấy thư mục chứa file hiện tại
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-    # Nối đường dẫn tuyệt đối tới file muốn mở
-    file_path = os.path.join(BASE_DIR, "app_choice.txt")
-
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(str(choice))
+complex_choice = False
 def stor_cmplx(choice: int = 0):
     global complex_choice
 
@@ -107,6 +97,332 @@ def stor_cmplx(choice: int = 0):
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(str(choice))
 stor_cmplx(0)
+class sqrt:
+    def __init__(self, n: int | float | list | Fraction | Decimal | complex):
+        #self.original = n
+        self.val = None
+
+        # mặc định
+        self.coef = None
+        self.radicand = None
+        self.sums_terms = None
+        # ===== REAL =====
+        if isinstance(n, (int, float, Fraction, Decimal)):
+            self.val = customised_sqrt(n)
+            if n >= 0:
+                if isinstance(n, int): 
+                    out = 1
+                    ins = 1
+                    
+                    temp_facts = FACT(n)
+                    for k, v in temp_facts:
+                        if v % 2 == 0:
+                            out *= Pow(k, v // 2)
+                        else:
+                            out *= Pow(k, (v - 1) // 2)
+                            ins *= k
+                    
+                    self.coef = out
+                    self.radicand = ins
+                elif isinstance(n, (float, Decimal)):
+                    n = float(n)
+                    if check_irrational(n):
+                        self.coef = self.val
+                        self.radicand = 1
+                    else:
+                        n = Fraction(*n.as_integer_ratio()).limit_denominator()
+                        temp_facts_denominator = FACT(n.denominator)
+                        ins_de = []
+                        ins_de_int = 1
+                        out_de = 1
+                        for k, v in temp_facts_denominator:
+                            if v % 2 == 0:
+                                out_de *= Pow(k, v // 2)
+                            else:
+                                out_de *= Pow(k, (v - 1) // 2)
+                                ins_de.append((k, 1))
+                                ins_de_int *= k
+                        #self.radicand
+                        temp_facts_numerator = FACT(n.numerator) + ins_de
+                        ins_nu = 1
+                        out_nu = 1
+                        for k, v in temp_facts_numerator:
+                            if v % 2 == 0:
+                                out_nu *= Pow(k, v // 2)
+                            else:
+                                out_nu *= Pow(k, (v - 1) // 2)
+                                ins_nu *= k
+                        new_frac = Fraction(out_nu, out_de*ins_de_int).limit_denominator()
+                        if new_frac.denominator == 1:
+                            self.coef = new_frac.numerator
+                            self.radicand = ins_nu
+                        else:
+                            self.coef = new_frac
+                            self.radicand = ins_nu
+                elif isinstance(n, Fraction):
+                        temp_facts_denominator = FACT(n.denominator)
+                        ins_de = []
+                        ins_de_int = 1
+                        out_de = 1
+                        for k, v in temp_facts_denominator:
+                            if v % 2 == 0:
+                                out_de *= Pow(k, v // 2)
+                            else:
+                                out_de *= Pow(k, (v - 1) // 2)
+                                ins_de.append((k, 1))
+                                ins_de_int *= k
+                        #self.radicand
+                        temp_facts_numerator = FACT(n.numerator) + ins_de
+                        ins_nu = 1
+                        out_nu = 1
+                        for k, v in temp_facts_numerator:
+                            if v % 2 == 0:
+                                out_nu *= Pow(k, v // 2)
+                            else:
+                                out_nu *= Pow(k, (v - 1) // 2)
+                                ins_nu *= k
+                        new_frac = Fraction(out_nu, out_de*ins_de_int).limit_denominator()
+                        if new_frac.denominator == 1:
+                            self.coef = new_frac.numerator
+                            self.radicand = ins_nu
+                        else:
+                            self.coef = new_frac
+                            self.radicand = ins_nu
+            else:
+                if not complex_choice:
+                    raise ValueError(MATH_ERROR)
+                out = 1
+                ins = 1
+                temp_facts = FACT(-n)
+                for k, v in temp_facts:
+                    if v % 2 == 0:
+                        out *= Pow(k, v // 2)
+                    else:
+                        out *= Pow(k, (v - 1) // 2)
+                        ins *= k
+                self.coef = out * 1j
+                self.radicand = ins
+        elif isinstance(n, complex):
+            if not complex_choice: raise ValueError(MATH_ERROR)
+            self.val = customised_sqrt(n)
+            self.coef = self.val
+            self.radicand = 1
+        elif isinstance(n, list):
+            self.sums_terms = n
+            res = 0
+            for i in n:
+                res += (i[0]*customised_sqrt(i[1]))
+            self.val = res
+    @property
+    def items(self):
+        if self.sums_terms is None \
+           and self.coef is not None \
+           and self.radicand is not None:
+            return [(self.coef, self.radicand)]
+        elif self.sums_terms is not None \
+           and (self.coef is None \
+           or self.radicand is None):
+            return self.sums_terms
+        else:
+            raise ValueError(MATH_ERROR)
+    
+    def __repr__(self):
+        return str(self)
+
+    def __str__(self):
+        terms = []
+    
+        for coef, rad in self.items:
+            if isinstance(coef, complex):
+                if rad == 1: 
+                    c_term = f"{coef}".replace('j','i')
+                else:
+                    if coef.real == 0 and not coef.imag == 0:
+                        c_term = f"({coef.imag}i)*sqrt({rad})"
+                    elif coef.real != 0 and coef.imag == 0:
+                        c_term = f"{returning(coef.real)}*sqrt({rad})"
+                    elif coef.real != 0 and coef.imag != 0:
+                        c_term = f"{coef}*sqrt({rad})".replace('j', 'i')
+                    else: c_term = ""
+                terms.append(c_term)
+                continue
+            if coef == 0:
+                continue
+    
+            # ===== RADICAND == 1 -> số thường =====
+            if rad == 1:
+                term = f"{coef}"
+            else:
+                # ===== COEF =====
+                if coef == 1:
+                    term = f"sqrt({rad})"
+                elif coef == -1:
+                    term = f"-sqrt({rad})"
+                else:
+                    if isinstance(coef, Fraction): 
+                        if coef.denominator != 1:
+                            term = f"({coef})*sqrt({rad})"
+                        else: term = f"{coef.numerator}*sqrt({rad})"
+                    else: term = f"{coef}*sqrt({rad})"
+    
+            terms.append(term)
+    
+        if not terms:
+            return "0"
+    
+        # ===== JOIN + FIX DẤU =====
+        display = terms[0]
+        for t in terms[1:]:
+            if t.startswith("-"):
+                display += t
+            else:
+                display += "+" + t
+    
+        return display
+    @property
+    def value(self): return self.val
+    def __float__(self):
+        v = self.value
+        if isinstance(v, complex):
+            raise ValueError("Cannot convert complex to float")
+        return float(v)
+
+    def __int__(self):
+        v = self.value
+        if isinstance(v, complex):
+            raise ValueError("Cannot convert complex to int")
+        return int(v)
+
+    def __format__(self, format_spec):
+        return format(str(self), format_spec)
+    def __add__(self, other):
+       if isinstance(other, sqrt):
+           items = sorted(self.items + other.items, key=lambda x: x[1])
+           now = items[0][1]
+           total = 0
+           new_terms = []
+           for i in range(len(items)):
+               if items[i][1] != now:
+                   new_terms.append((total, now))
+                   now = items[i][1]
+                   total = items[i][0]
+               else:
+                   total += items[i][0]
+           new_terms.append((total, now))
+           return sqrt(new_terms)
+       elif isinstance(other, (int, float, Fraction, Decimal)):
+           if other == 0: return self
+           if not any(i[1] == 1 for i in self.items):
+               new_terms = [(returning(other), 1)] + self.items
+               return sqrt(new_terms)
+           else:
+               items = list(filter(lambda x: x[1] == 1, self.items))
+               remain = list(filter(lambda x: not x[1] in [0, 1] and not x[0] == 0, self.items))
+               total = sum(x[0] for x in items)
+               total += other
+               new_terms = [(total, 1)] + remain
+               return sqrt(new_terms)
+    def __radd__(self, other):
+        return self + other
+    def __sub__(self, other):
+       # a - b -> a + (-b)
+        return self + ((-1)*other)
+    def __rsub__(self, other):
+        return (-1)*self + other
+    def __mul__(self, other):
+        if isinstance(other, sqrt):
+            items_other = other.items
+            items_self = self.items
+            terms = []
+            for i in items_self:
+                for j in items_other:
+                    out = i[0] * j[0]
+                    ins = i[1] * j[1]
+                    facts = FACT(ins)
+                    inside = 1
+                    for k, v in facts:
+                        if v % 2 == 0:
+                            out *= Pow(k, v // 2)
+                        else:
+                            out *= Pow(k, (v - 1) // 2)
+                            inside *= k
+                    terms.append((out, inside))
+            return sqrt(terms)
+        elif isinstance(other, (int, float, Fraction, Decimal, complex)):
+            if isinstance(other, (int, float, Fraction, Decimal)):
+                if other == 1: return self
+                if check_irrational(other): pass
+                else: other = Fraction(*float(other).as_integer_ratio()).limit_denominator()
+            items = self.items
+            new_terms = []
+            for i in items:
+                outs = other * i[0]
+                new_terms.append((outs, i[1]))
+            return sqrt(new_terms)
+        else: raise ValueError(MATH_ERROR)
+    def __rmul__(self, other):
+        return self * other
+    def __pow__(self, other):
+        if isinstance(other, int):
+            if 0 <= (other) <= 6:
+                res = 1
+                for _ in range(other):
+                    res *= self
+                return res
+            else: return Pow(self.value, other)
+        elif isinstance(other, (float, Decimal, Fraction)):
+            n = float(other)
+            return Pow(self.value, n)
+        elif isinstance(other, sqrt):
+            return Pow(self.value, other.value)
+        raise ValueError(MATH_ERROR)
+    def __rpow__(self, other):
+        return Pow(other, self.value)
+    def __truediv__(self, other):
+        if isinstance(other, sqrt):
+            if len(other.items) == 1:
+                items_o = other.items[0]
+                items_s = self.items
+                res = 0
+                for outs, ins in items_s:
+                    new_sqrt = sqrt(Fraction(ins, items_o[1]))
+                    res += (Fraction(outs, items_o[0])*new_sqrt)
+                return res
+            if len(other.items) == 2:
+                items_o = other.items
+                items_s = self.items
+                sqrt_needed = sqrt([items_o[0]]) - sqrt([items_o[1]])
+                # Tử số
+                numerator = self * sqrt_needed
+                # Mẫu số
+                denominator = other * sqrt_needed
+                # Do mẫu đã nhân liên hợp, lúc này chỉ cần chia tử sqrt với number thôi
+                value_denominator = denominator.value
+                return numerator / value_denominator
+            else: return returning(self.value / other.value)
+        if isinstance(other, (int, float, Fraction, Decimal)):
+            items = self.items
+            new_terms = []
+            for k, v in items:
+                new_terms.append((k / other, v))
+            return sqrt(new_terms)
+
+# put value.
+e = euler_num()
+getcontext().prec = 50
+
+app = False
+def app_open(choice: int = 0):
+    global app
+    app = (choice == True)
+    # Lấy thư mục chứa file hiện tại
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # Nối đường dẫn tuyệt đối tới file muốn mở
+    file_path = os.path.join(BASE_DIR, "app_choice.txt")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(str(choice))
 # Variable
 variable = [0 for _ in range(10)]
 A, B, C, D, E, F, x, y, z, M = variable
@@ -327,7 +643,7 @@ def is_scientific_notation(n: float) -> float:
 # 5. Unified returning()
 # ---------------------------------------------------------
 
-def returning(n: int | float | Decimal | complex,
+def returning(n: int | float | Decimal | sqrt | complex,
               choice: str = "S",
               /):
               #app: bool = False):
@@ -373,6 +689,11 @@ def returning(n: int | float | Decimal | complex,
         if not complex_choice:
             raise ValueError(MATH_ERROR)
         return n
+    elif isinstance(n, sqrt):
+        if choice == "D":
+            return n.value
+        elif choice == "S":
+            return n
     # ----------------------
     # 6) Thử phân tích dạng a*sqrt(b)
     # ----------------------
@@ -413,21 +734,21 @@ def check_irrational(n: float) -> bool:
 
 # =========================
 # Chia lấy dư và hệ toạ độ Đề-các
-def Pol(x: int | float | Fraction | Decimal, y: int | Fraction | float | Decimal, /, ask: bool = False):
+def Pol(x: int | float | Fraction | Decimal, y: int | Fraction | float | Decimal, ask: bool = False):
     import math
-    r = math.hypot(x, y)
-    theta = convert_deg(math.atan2(y, x))
+    r = returning(math.hypot(x, y))
+    theta = returning(convert_deg(math.atan2(y, x)))
     if ask:
         return r, theta, "pol"
     elif complex_choice:
         return r, theta
-    return returning(r)
+    return r
 
-def Rec(r: int | float | Fraction | Decimal, theta: int | float | Fraction | Decimal, /, ask: bool = False):
+def Rec(r: int | float | Fraction | Decimal, theta: int | float | Fraction | Decimal, ask: bool = False):
     import math
     theta = _to_radian_if_needed(theta)
-    x = r * math.cos(theta)
-    y = r * math.sin(theta)
+    x = returning(r * math.cos(theta))
+    y = returning(r * math.sin(theta))
     if ask:
         return x, y, "rec"
     elif complex_choice:
@@ -448,6 +769,7 @@ def ReP(z: int | float | Fraction | complex | str):
                 r, t = map(returning, z.split(angle))
                 re, _ = Rec(r, t)
                 return returning(re)
+            else: raise ValueError(MATH_ERROR)
         else:
             return returning(z)
     else: raise ValueError(MATH_ERROR)
@@ -600,7 +922,7 @@ def preprocess_expression(expr: str) -> str:
     )  
     if pure_pol:  
         a, b = pure_pol.groups()  
-        return f"Pol({a},{b},ask=True)"  
+        return f"Pol({a},{b},True)"  
 
     pure_rec = re.fullmatch(  
         r'Rec\(([^()]+),([^()]+)\)',  
@@ -608,7 +930,7 @@ def preprocess_expression(expr: str) -> str:
     )  
     if pure_rec:  
         a, b = pure_rec.groups()  
-        return f"Rec({a},{b},ask=True)"  
+        return f"Rec({a},{b},True)"  
     # -------------------------------  
     # nCr / nPr  
     # -------------------------------  
@@ -762,7 +1084,6 @@ def evaluate_expression(expr: str,
         "nth_rt": nth_root,
         "gcd": gcd,
         "lcm": lcm,
-        
         "RandInt": Randint,
         "Int": int,
         "Rnd": Rnd,
@@ -782,24 +1103,6 @@ def evaluate_expression(expr: str,
             "Conjg": Conjg
         })
     new_ = {"Ans": Ans} | actual_val_const
-    #check = list(new_ | safe)
-    from sympy import sympify, radsimp, simplify as sym_simplify
-    # try:
-    HAS_SYMPY = True
-    # except:
-    #    HAS_SYMPY = False
-    if HAS_SYMPY:
-        s = sympify(expr_clean, evaluate=True)
-
-        if simplify_symbolic:
-            s = sym_simplify(radsimp(s))
-        
-        new_s = str(s)
-        if 1 <= new_s.count("sqrt") <= 2 \
-           and not new_s.count("sqrt(sqrt(") > 0 \
-           and not any((i and i != "sqrt") for i in safe) \
-           and app:
-               return new_s
     safe.update({
         "pi": pi,
         "e": e,
@@ -812,6 +1115,7 @@ def evaluate_expression(expr: str,
     new_ |= avail_vars
     safe |= new_
     res = eval(expr_clean, {"__builtins__": {}}, safe)
+    if isinstance(res, (tuple, list, dict, str, set, range)): return res
     res = returning(res)
     Ans = res
     return res
@@ -908,25 +1212,33 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
     # Chỉ trả nghiệm thực đầu tiên
 
     if ask:
-        res = []
+        if not app:
+            res = []
+            for s in sol:
+                re, im = s.as_real_imag()
+    
+                re_f = float(re.evalf())
+                im_f = float(im.evalf())
+    
+                if abs(im_f) < 1e-50:
+                    # nghiệm thực
+                    res.append(returning(re_f))
+                else:
+                    # nghiệm phức
+                    res.append(complex(re_f, im_f))
+            return res
+        else: pass
+    elif app:
         for s in sol:
-            re, im = s.as_real_imag()
-
-            re_f = float(re.evalf())
-            im_f = float(im.evalf())
-
-            if abs(im_f) < 1e-50:
-                # nghiệm thực
-                res.append(returning(re_f))
-            else:
-                # nghiệm phức
-                res.append(complex(re_f, im_f))
-        return res    
-    for s in sol:
-        if s.is_real: 
-                x_val = returning(evaluate_expression(str(s)))
+            if s.is_real: 
+                x_val = str(s)
                 stor(x=x_val)
                 return x_val
+    for s in sol:
+        if s.is_real: 
+            x_val = returning(evaluate_expression(str(s)))
+            stor(x=x_val)
+            return x_val 
     return []
     #except Exception:
         #return MATH_ERROR
@@ -994,16 +1306,17 @@ def FACT(n: int, primes=None):
         factors.append((remaining, 1))
     return factors
 
-def sqrt(n: int | float | Decimal | Fraction | complex):
+def customised_sqrt(n: int | float | Decimal | Fraction | complex):
     global complex_choice
-    if n < 0 or isinstance(n, complex):
+   
+    if isinstance(n, complex):
+        return cmath.sqrt(n)
+    elif n < 0:
         if not complex_choice: raise ValueError(MATH_ERROR)
         elif n < 0: 
             real = abs(n)
             real = returning(math.sqrt(real))
             return real*1j
-        elif isinstance(n, complex):
-            return cmath.sqrt(n)
     return returning(math.sqrt(n))
 
 def cbrt(n: int | float | Decimal | Fraction | complex):
@@ -1224,7 +1537,6 @@ def calc(expr: str, **vars_values):
         "modulo": modulo,
         "sqrt": sqrt,
         "exp": exp,
-        "inf": float("inf")
     }
         if complex_choice:
             local_dict.pop("Rec")
@@ -1361,7 +1673,7 @@ stor(x=sqrt(2));
 res_.append(str(evaluate_expression("2x+1-3"))+"\n")
 res_.append(str(Ans) + "\n")
 res_.append(str(calc("2A - 3", A=6))+"\n")
-res_.append(str(returning(sqrt(2)))+"\n")
+res_.append(str(returning(customised_sqrt(2)))+"\n")
 res_.append(str(d_dx("x^2 + 2x + 1", 9)) + "\n")
 res_.append(str(inte(0, 4, "x^2 + 4")) + "\n")
 res_.append(str(sums(0, 10, "x**2")) + "\n")
@@ -1373,3 +1685,5 @@ with open(file_path, "w", encoding="utf-8") as f:
 del res_;
 #print(evaluate_expression("e^(2)"))
 Ans = 0
+#app_open(1)
+#print(solve_eq("x^(2)-2=0"))
