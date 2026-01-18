@@ -419,7 +419,15 @@ class sqrt:
             if isinstance(other, sqrt):
                 return Fraction(1, denominator) * other * sqrt(ins)
         if len(self.items) == 2:
-            pass
+            sqrt_needed = sqrt(self.items[0]) - sqrt(self.items[1])
+            # Mẫu số:
+            denominator = (self * sqrt_needed)
+            val_denominator = denominator.value
+            # Tử số:
+            numerator = other * sqrt_needed
+            return numerator / val_denominator
+        else:
+            return other / self.value
             
 # put value.
 e = euler_num()
