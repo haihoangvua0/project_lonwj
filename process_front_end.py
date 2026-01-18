@@ -404,9 +404,23 @@ class sqrt:
             items = self.items
             new_terms = []
             for k, v in items:
-                new_terms.append((k / other, v))
+                new_terms.append((Fraction(k, other).limit_denominator(), v))
             return sqrt(new_terms)
-
+        raise ValueError(MATH_ERROR)
+    def __rtruediv__(self, other):
+        if len(self.items) == 1:
+            ins = self.items[0][1]
+            outs = self.items[0][1]
+            # Mẫu số
+            denominator = outs * ins
+            # Tử số
+            if isinstance(other, (int, float, Fraction, Decimal)):
+                return Fraction(other, denominator).limit_denominator() * sqrt(ins)
+            if isinstance(other, sqrt):
+                return Fraction(1, denominator) * other * sqrt(ins)
+        if len(self.items) == 2:
+            pass
+            
 # put value.
 e = euler_num()
 getcontext().prec = 50
@@ -449,6 +463,29 @@ def stor(**var_input: int):
     with open(file_path, "w", encoding="utf-8") as f:
         for i in variable:
             f.write(f"{i}\n")
+
+def stor_ans():
+    stor_ = Ans
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # Nối đường dẫn tuyệt đối tới file muốn mở
+    file_path = os.path.join(BASE_DIR, "ans.txt")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(str(stor_))
+stor_ans()
+
+def open_ans():
+    global Ans
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # Nối đường dẫn tuyệt đối tới file muốn mở
+    file_path = os.path.join(BASE_DIR, "ans.txt")
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        Ans = f.readlines()[-1]
+        Ans = evaluate_expression(Ans)
+
 
 a = {
     "x": 0
@@ -1594,10 +1631,9 @@ rcl()
 # lst_of_cmd = ["[solve]", '[calc]', "[settings]"]
 dict_of_setting = {
     "Angle unit": ANGLE_MODE,
-    "Statistics": False, # Freq on or of
-    "Equation/ Function": True, # Mở kết quả số phức
-    "Table": 1 # f(x) / f(x), g(x)
-    #"Language" # 1. English/ 2. Tiếng Việt
+    "Statistics": False,
+    "Equation/ Function": False, 
+    "Table": 1
 }
 # lst_of_stop = ["stop", "off", "exit", "quit"]
 def stat_setting(choice: int = int(dict_of_setting["Statistics"])):
@@ -1683,7 +1719,4 @@ file_path = os.path.join(BASE_DIR_, "run.txt")
 with open(file_path, "w", encoding="utf-8") as f:
     f.writelines(res_)
 del res_;
-#print(evaluate_expression("e^(2)"))
 Ans = 0
-#app_open(1)
-#print(solve_eq("x^(2)-2=0"))
