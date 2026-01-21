@@ -113,7 +113,7 @@ class sqrt:
                 if isinstance(n, int): 
                     out = 1
                     ins = 1
-                    
+
                     temp_facts = FACT(n)
                     for k, v in temp_facts:
                         if v % 2 == 0:
@@ -121,7 +121,7 @@ class sqrt:
                         else:
                             out *= Pow(k, (v - 1) // 2)
                             ins *= k
-                    
+
                     self.coef = out
                     self.radicand = ins
                 elif isinstance(n, (float, Decimal)):
@@ -208,11 +208,16 @@ class sqrt:
             self.coef = self.val
             self.radicand = 1
         elif isinstance(n, list):
-            self.sums_terms = n
             res = 0
-            for i in n:
-                res += (i[0]*customised_sqrt(i[1]))
+            for i in range(len(n)):
+                if isinstance(n[i][0], (float, Decimal)):
+                        if check_irrational(n[i][0]):
+                                pass
+                        else:
+                                n[i] = (Fraction(*float(n[i][0]).as_integer_ratio()).limit_denominator(), n[i][1])
+                res += (n[i][0]*customised_sqrt(n[i][1]))
             self.val = res
+            self.sums_terms = n
     @property
     def items(self):
         if self.sums_terms is None \
@@ -225,13 +230,13 @@ class sqrt:
             return self.sums_terms
         else:
             raise ValueError(MATH_ERROR)
-    
+
     def __repr__(self):
         return str(self)
 
     def __str__(self):
         terms = []
-    
+
         for coef, rad in self.items:
             if isinstance(coef, complex):
                 if rad == 1: 
@@ -248,7 +253,7 @@ class sqrt:
                 continue
             if coef == 0:
                 continue
-    
+
             # ===== RADICAND == 1 -> số thường =====
             if rad == 1:
                 term = f"{coef}"
@@ -261,15 +266,18 @@ class sqrt:
                 else:
                     if isinstance(coef, Fraction): 
                         if coef.denominator != 1:
-                            term = f"({coef})*sqrt({rad})"
+                            if coef > 0:
+                                term = f"({coef})*sqrt({rad})"
+                            else: 
+                                term = f"-({-coef})*sqrt({rad})"
                         else: term = f"{coef.numerator}*sqrt({rad})"
                     else: term = f"{coef}*sqrt({rad})"
-    
+
             terms.append(term)
-    
+
         if not terms:
             return "0"
-    
+
         # ===== JOIN + FIX DẤU =====
         display = terms[0]
         for t in terms[1:]:
@@ -277,7 +285,7 @@ class sqrt:
                 display += t
             else:
                 display += "+" + t
-    
+
         return display
     @property
     def value(self): return self.val
@@ -404,13 +412,13 @@ class sqrt:
             items = self.items
             new_terms = []
             for k, v in items:
-                new_terms.append((Fraction(k, other).limit_denominator(), v))
+                new_terms.append((k/other, v))
             return sqrt(new_terms)
         raise ValueError(MATH_ERROR)
     def __rtruediv__(self, other):
         if len(self.items) == 1:
             ins = self.items[0][1]
-            outs = self.items[0][1]
+            outs = self.items[0][0]
             # Mẫu số
             denominator = outs * ins
             # Tử số
@@ -419,7 +427,7 @@ class sqrt:
             if isinstance(other, sqrt):
                 return Fraction(1, denominator) * other * sqrt(ins)
         if len(self.items) == 2:
-            sqrt_needed = sqrt(self.items[0]) - sqrt(self.items[1])
+            sqrt_needed = sqrt([self.items[0]]) - sqrt([self.items[1]])
             # Mẫu số:
             denominator = (self * sqrt_needed)
             val_denominator = denominator.value
@@ -428,7 +436,7 @@ class sqrt:
             return numerator / val_denominator
         else:
             return other / self.value
-            
+
 # put value.
 e = euler_num()
 getcontext().prec = 50
@@ -1261,10 +1269,10 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
             res = []
             for s in sol:
                 re, im = s.as_real_imag()
-    
+
                 re_f = float(re.evalf())
                 im_f = float(im.evalf())
-    
+
                 if abs(im_f) < 1e-50:
                     # nghiệm thực
                     res.append(returning(re_f))
@@ -1299,7 +1307,9 @@ def exp(n: int | float | Decimal | Fraction | complex):
         real_part = math.exp(a)
         imag_part = returning(math.cos(b)) + returning(math.sin(b)) * 1j
 
-        return real_part * imag_part   # nhân, không phải cộng
+        return real_part * imag_part
+    elif returning(n) == float("inf"):
+        return float("inf")
 
     return math.exp(n)
 
@@ -1353,7 +1363,7 @@ def FACT(n: int, primes=None):
 
 def customised_sqrt(n: int | float | Decimal | Fraction | complex):
     global complex_choice
-   
+
     if isinstance(n, complex):
         return cmath.sqrt(n)
     elif n < 0:
@@ -1365,36 +1375,10 @@ def customised_sqrt(n: int | float | Decimal | Fraction | complex):
     return returning(math.sqrt(n))
 
 def cbrt(n: int | float | Decimal | Fraction | complex):
-    global complex_choice
-    if isinstance(n, complex):
-        if not complex_choice:
-            raise ValueError(MATH_ERROR)
-        return pow(n, 1/3)
-    res = n ** 1/3 if n >= 0 else -((-n) ** 1/3)
-    return returning(res)
+    return Pow(n, 1/3)
 
-def nth_root(base: float | Fraction | Decimal | int, ex: float | Fraction | Decimal | int = 0):
-    global complex_choice
-    if not isinstance(ex, int):
-        raise ValueError(MATH_ERROR)
-    if ex < 0:
-        raise ValueError(MATH_ERROR)
-    elif ex == 0:
-        if base == 0:
-            raise ValueError(MATH_ERROR)
-        return 1
-    if base < 0:
-        if ex % 2 == 0:
-            if not complex_choice:
-                raise ValueError(MATH_ERROR + ". The number must be over 0")
-            base_ = abs(base)
-            base_ = nth_root(base_, ex)
-            return base_*1j
-        else:
-            res = -((-base) ** (1/ex))
-            return returning(res)
-    result = float(pow(base, 1 / ex))
-    return returning(result)
+def nth_root(ex: float | Fraction | Decimal | int, base: float | Fraction | Decimal | int):
+    return Pow(base, 1/ex)
 
 def pow_mod(base: int, exp: int, mod: int):
     if mod == 1:
@@ -1715,9 +1699,9 @@ res_ = []
 res_.append(str(solve_eq("x**2+B", ask=True, B=1))+"\n")
 stor(x=sqrt(2)); 
 res_.append(str(evaluate_expression("2x+1-3"))+"\n")
-res_.append(str(Ans) + "\n")
+#res_.append(str(Ans) + "\n")
 res_.append(str(calc("2A - 3", A=6))+"\n")
-res_.append(str(returning(customised_sqrt(2)))+"\n")
+res_.append(str(returning(sqrt(2)))+"\n")
 res_.append(str(d_dx("x^2 + 2x + 1", 9)) + "\n")
 res_.append(str(inte(0, 4, "x^2 + 4")) + "\n")
 res_.append(str(sums(0, 10, "x**2")) + "\n")
