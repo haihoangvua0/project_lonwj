@@ -6,7 +6,7 @@ MATH_ERROR = pfe.MATH_ERROR
 complex_choice = pfe.complex_choice
 
 TEXT_NORMAL = "black"
-TEXT_ACTIVE = "#d39e00"   # vàng chữ
+TEXT_ACTIVE = "#a0e000"   # vàng chữ
 TEXT_ALPHA = "#db035a"    # hồng chữ
 
 pfe.app_open(1)
@@ -37,9 +37,9 @@ class Calculator_fx:
                 self.stor_mode = False
                 self.finish_eval = False
                 self.fact_reg = "S"
-                #self.history = [
-                #        ("", "", False)
-                #] # ("", "", True) True -> có thể mở lại lịch sử... False -> tắt chế độ xem lại lịch sử
+                self.history = [] # ("", "", "", True) True -> có thể mở lại lịch sử... False -> tắt chế độ xem lại lịch sử
+                self.history_index = -1
+                self.contents = None
                 self.regulation = "S"
                 self.temp_value = 0
                 self.extra_norm = [
@@ -85,46 +85,6 @@ class Calculator_fx:
                 self.build_replay()
                 self.build_extra_grid()
                 self.build_main_grid()
-        def find_abs_pair(self, expr: str, pos: int):
-                """
-                Trả về (l, r) là vị trí của | ... | bao quanh cursor
-                hoặc None nếu không có
-                """
-                # tìm | bên trái
-                left = None
-                depth = 0
-                for i in range(pos - 1, -1, -1):
-                        if expr[i] == "|":
-                                if depth == 0:
-                                        left = i
-                                        break
-                                depth -= 1
-                        elif expr[i] == ")":
-                                depth += 1
-                        elif expr[i] == "(":
-                                depth -= 1
-
-                if left is None:
-                        return None
-
-                # tìm | bên phải
-                right = None
-                depth = 0
-                for i in range(pos, len(expr)):
-                        if expr[i] == "|":
-                                if depth == 0:
-                                        right = i
-                                        break
-                                depth -= 1
-                        elif expr[i] == "(":
-                                depth += 1
-                        elif expr[i] == ")":
-                                depth -= 1
-
-                if right is None:
-                        return None
-
-                return left, right
         def build_display(self):  
                 frame = tk.Frame(self.win)  
                 frame.pack(fill="x", padx=6, pady=4)  
@@ -176,7 +136,6 @@ class Calculator_fx:
                                 self.inputs.icursor(tk.END)
                         self.output.delete(0, tk.END)
                         if pos > 0:
-                                #text = self.inputs.get()
                                 # ưu tiên di chuyển qua token dài
                                 for token in sorted(SMART_TOKENS, key=len, reverse=True):
                                         L = len(token)
@@ -208,10 +167,33 @@ class Calculator_fx:
                                 if not self.inputs.get(): pass
                                 else: self.inputs.icursor(0)
                 elif value == "up":
-                        pass
+                        if self.history and (not self.inputs.get() and not self.output.get()):
+                                if self.history_index == -(len(self.history)):
+                                        return
+                                self.contents = self.history[self.history_index]
+                                self.history_index -= 1
+                                self.inputs.insert(0, self.content[0])
+                                self.inputs.icursor(tk.END)
+                                self.output.insert(0, self.content[1])
+                        else:
+                                if self.finish_eval:
+                                        self.finish_eval = False
+                                        self.output.delete(0, tk.END)
+                                self.inputs.icursor(0)
                 elif value == "down":
-                        # Sau này mở rộng replay nhiều bước
-                        pass
+                        if self.history and (not self.inputs.get() and not self.output.get()):
+                                if self.history_index == -1:
+                                        return
+                                self.contents = self.history[self.history_index]
+                                self.history_index += 1
+                                self.inputs.insert(0, self.content[0])
+                                self.inputs.icursor(tk.END)
+                                self.output.insert(0, self.content[1])
+                        else:
+                                if self.finish_eval:
+                                        self.finish_eval = False
+                                        self.output.delete(0, tk.END)
+                                self.inputs.icursor(tk.END)
         def on_press3(self, value):
                 """Cho bảng số hàm (frac,...)"""
                 self.inputs.focus_set()
@@ -272,7 +254,7 @@ class Calculator_fx:
                 elif value == ")":
                         if self.finish_eval:
                                 self.inputs.delete(0, tk.END)
-                                self.inputs.insert(")")
+                                self.inputs.insert(0, ")")
                                 self.output.delete(0, tk.END)
                                 self.finish_eval = False
                                 return
@@ -298,11 +280,27 @@ class Calculator_fx:
                                         self.inputs.insert(pos, "i")
                                         self.inputs.icursor(pos+1)
                                         self.output.delete(0, tk.END)
-                elif value in ["inte", "frac", "sqrt", "log", "ln",
+                elif value in ["inte", "frac", "sqrt", "nth_rt", "log", "ln",
                                "sin", "cos", "tan", "asin", "acos", "atan",
                                "d_dx", "sums", "muls", "exp", "10^"]:
+                        if self.finish_eval:
+                                self.finish_eval = False
+                                self.inputs.delete(0, tk.END)
+                                self.inputs.icursor(0)
+                                pos = 0
                         expr = self.inputs.get()
                         text = ("*" if (pos > 0 and (not expr[pos-1].isdigit())) else "") + value + "()"
+                        self.inputs.insert(pos, text)
+                        self.inputs.icursor(pos + len(text) - 1)
+                        self.output.delete(0, tk.END)
+                elif value == "cbrt":
+                        if self.finish_eval:
+                                self.finish_eval = False
+                                self.inputs.delete(0, tk.END)
+                                self.inputs.icursor(0)
+                                pos = 0
+                        expr = self.inputs.get()
+                        text = ("*" if (pos > 0 and (not expr[pos-1].isdigit())) else "") + "nth_rt(3,)"
                         self.inputs.insert(pos, text)
                         self.inputs.icursor(pos + len(text) - 1)
                         self.output.delete(0, tk.END)
@@ -325,7 +323,7 @@ class Calculator_fx:
                                         self.solve_vars = free_symbol
                                         self.solve_values = {}
                                         self.solve_index = 0
-        
+
                                         self.inputs.delete(0, tk.END)
                                         self.output.delete(0, tk.END)
                                         self.inputs.insert(0, f"{free_symbol[0]}=")
@@ -346,6 +344,14 @@ class Calculator_fx:
                                 self.finish_eval = False
                         self.inputs.insert(pos, "||")
                         self.inputs.icursor(pos+1)
+                elif value == "[mod]":
+                        if self.finish_eval:
+                                self.inputs.delete(0, tk.END)
+                                #self.inputs.insert("Ans")
+                                self.output.delete(0, tk.END)
+                                self.finish_eval = False
+                        self.inputs.insert(pos, "[mod]")
+                        self.inputs.icursor(pos+len("[mod]"))
                 elif value == "OPTN":
                         pass
                 elif value == "CALC":
@@ -439,14 +445,6 @@ class Calculator_fx:
                         del_right = False
                         if pos == 0:
                                 del_right = True
-                        if pos > 0 and text[pos-1] == "|":
-                                pair = self.find_abs_pair(text, pos-1)
-                                if pair:
-                                        l, r = pair
-                                        self.inputs.delete(r, r + 1)
-                                        self.inputs.delete(l, l+1)
-                                        self.inputs.icursor(l)
-                                        return
                         # ưu tiên xoá token dài
                         for token in sorted(SMART_TOKENS, key=len, reverse=True):
                                 L = len(token)
@@ -494,9 +492,9 @@ class Calculator_fx:
                                                 self.fact_reg = "S"
                                                 self.finish_eval = True
                                                 self.output.insert(0, str(result))
-                                except Exception as ex:
+                                except Exception:
                                         self.output.delete(0, tk.END)
-                                        self.output.insert(0, ex)
+                                        self.output.insert(0, MATH_ERROR)
                                         self.finish_eval = True
                         elif self.calc_ing:
                                 if self.calc_mode:
@@ -524,9 +522,9 @@ class Calculator_fx:
                                                         self.calc_ing = True
                                                         self.calc_index = -1
                                                         self.finish_eval = True
-                                        except Exception as ex:
+                                        except Exception:
                                                 self.output.delete(0, tk.END)
-                                                self.output.insert(0, ex)
+                                                self.output.insert(0, MATH_ERROR)
                                                 self.finish_eval = True
                                 elif self.solve_mode:
                                         try:
@@ -553,9 +551,9 @@ class Calculator_fx:
 
                                                         self.solve_mode = False
                                                         self.calc_ing = False
-                                        except Exception as ex:
+                                        except Exception:
                                                 self.output.delete(0, tk.END)
-                                                self.output.insert(0, ex)
+                                                self.output.insert(0, MATH_ERROR)
                                                 self.finish_eval = True
 
                 elif value == "OFF":
