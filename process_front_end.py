@@ -1,6 +1,7 @@
 """ Backend module for FX-580 simulator (functions collected & refined) """
 
 # Module needed for all
+from functools import cache
 import math
 from decimal import Decimal, getcontext
 import os
@@ -116,6 +117,20 @@ def stor_cmplx(choice: int = 0):
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(str(choice))
 stor_cmplx(0)
+
+@cache
+def split_in_out(n: int):
+    out = 1
+    ins = 1
+
+    temp_facts = FACT(n)
+    for k, v in temp_facts:
+        if v % 2 == 0:
+            out *= Pow(k, v // 2)
+        else:
+            out *= Pow(k, (v - 1) // 2)
+            ins *= k
+    return out, ins
 class sqrt:
     def __init__(self, n: int | float | list | Fraction | Decimal | complex):
         #self.original = n
@@ -130,17 +145,7 @@ class sqrt:
             self.val = customised_sqrt(n)
             if n >= 0:
                 if isinstance(n, int): 
-                    out = 1
-                    ins = 1
-
-                    temp_facts = FACT(n)
-                    for k, v in temp_facts:
-                        if v % 2 == 0:
-                            out *= Pow(k, v // 2)
-                        else:
-                            out *= Pow(k, (v - 1) // 2)
-                            ins *= k
-
+                    out, ins = split_in_out(n)
                     self.coef = out
                     self.radicand = ins
                 elif isinstance(n, (float, Decimal)):
@@ -150,28 +155,10 @@ class sqrt:
                         self.radicand = 1
                     else:
                         n = Fraction(*n.as_integer_ratio()).limit_denominator()
-                        temp_facts_denominator = FACT(n.denominator)
-                        ins_de = []
-                        ins_de_int = 1
-                        out_de = 1
-                        for k, v in temp_facts_denominator:
-                            if v % 2 == 0:
-                                out_de *= Pow(k, v // 2)
-                            else:
-                                out_de *= Pow(k, (v - 1) // 2)
-                                ins_de.append((k, 1))
-                                ins_de_int *= k
-                        #self.radicand
-                        temp_facts_numerator = FACT(n.numerator) + ins_de
-                        ins_nu = 1
-                        out_nu = 1
-                        for k, v in temp_facts_numerator:
-                            if v % 2 == 0:
-                                out_nu *= Pow(k, v // 2)
-                            else:
-                                out_nu *= Pow(k, (v - 1) // 2)
-                                ins_nu *= k
-                        new_frac = Fraction(out_nu, out_de*ins_de_int).limit_denominator()
+                        out_de, ins_de = split_in_out(n.denominator)
+                        numerator = n.numerator * ins_de
+                        out_nu, ins_nu = split_in_out(numerator)
+                        new_frac = Fraction(out_nu, out_de*ins_de).limit_denominator()
                         if new_frac.denominator == 1:
                             self.coef = new_frac.numerator
                             self.radicand = ins_nu
@@ -249,7 +236,10 @@ class sqrt:
             return self.sums_terms
         else:
             raise ValueError(MATH_ERROR)
+    @property
+    def value(self): return self.val
 
+    # Printing and formating...
     def __repr__(self):
         return str(self)
 
@@ -306,8 +296,7 @@ class sqrt:
                 display += "+" + t
 
         return display
-    @property
-    def value(self): return self.val
+    
     def __float__(self):
         v = self.value
         if isinstance(v, complex):
@@ -322,37 +311,39 @@ class sqrt:
 
     def __format__(self, format_spec):
         return format(str(self), format_spec)
+    
+    # Math doing
     def __add__(self, other):
-       if isinstance(other, sqrt):
-           items = sorted(self.items + other.items, key=lambda x: x[1])
-           now = items[0][1]
-           total = 0
-           new_terms = []
-           for i in range(len(items)):
-               if items[i][1] != now:
-                   new_terms.append((total, now))
-                   now = items[i][1]
-                   total = items[i][0]
-               else:
-                   total += items[i][0]
-           new_terms.append((total, now))
-           return sqrt(new_terms)
-       elif isinstance(other, (int, float, Fraction, Decimal)):
-           if other == 0: return self
-           if not any(i[1] == 1 for i in self.items):
-               new_terms = [(returning(other), 1)] + self.items
-               return sqrt(new_terms)
-           else:
-               items = list(filter(lambda x: x[1] == 1, self.items))
-               remain = list(filter(lambda x: not x[1] in [0, 1] and not x[0] == 0, self.items))
-               total = sum(x[0] for x in items)
-               total += other
-               new_terms = [(total, 1)] + remain
-               return sqrt(new_terms)
+        if isinstance(other, sqrt):
+            items = sorted(self.items + other.items, key=lambda x: x[1])
+            now = items[0][1]
+            total = 0
+            new_terms = []
+            for i in range(len(items)):
+                if items[i][1] != now:
+                    new_terms.append((total, now))
+                    now = items[i][1]
+                    total = items[i][0]
+                else:
+                    total += items[i][0]
+            new_terms.append((total, now))
+            return sqrt(new_terms)
+        elif isinstance(other, (int, float, Fraction, Decimal)):
+            if other == 0: return self
+            if not any(i[1] == 1 for i in self.items):
+                new_terms = [(returning(other), 1)] + self.items
+                return sqrt(new_terms)
+            else:
+                items = list(filter(lambda x: x[1] == 1, self.items))
+                remain = list(filter(lambda x: not x[1] in [0, 1] and not x[0] == 0, self.items))
+                total = sum(x[0] for x in items)
+                total += other
+                new_terms = [(total, 1)] + remain
+                return sqrt(new_terms)
     def __radd__(self, other):
         return self + other
     def __sub__(self, other):
-       # a - b -> a + (-b)
+        # a - b -> a + (-b)
         return self + ((-1)*other)
     def __rsub__(self, other):
         return (-1)*self + other
@@ -365,15 +356,8 @@ class sqrt:
                 for j in items_other:
                     out = i[0] * j[0]
                     ins = i[1] * j[1]
-                    facts = FACT(ins)
-                    inside = 1
-                    for k, v in facts:
-                        if v % 2 == 0:
-                            out *= Pow(k, v // 2)
-                        else:
-                            out *= Pow(k, (v - 1) // 2)
-                            inside *= k
-                    terms.append((out, inside))
+                    outside, inside = split_in_out(ins)
+                    terms.append((out*outside, inside))
             return sqrt(terms)
         elif isinstance(other, (int, float, Fraction, Decimal, complex)):
             if isinstance(other, (int, float, Fraction, Decimal)):
@@ -391,7 +375,7 @@ class sqrt:
         return self * other
     def __pow__(self, other):
         if isinstance(other, int):
-            if 0 <= (other) <= 6:
+            if 0 <= (other) <= 5:
                 res = 1
                 for _ in range(other):
                     res *= self
@@ -1364,6 +1348,8 @@ def sieve_primes(limit: int):
             sieve[start: limit+1: step] = b'\x00' * ((limit - start)//step + 1)
     return [i for i, isprime in enumerate(sieve) if isprime]
 
+_PRIMES_UP_TO_1E5 = sieve_primes(100_000)
+@cache
 def FACT(n: int, primes=None):
     """
     Phân tích n (n >= 1) thành các thừa số nguyên tố.
@@ -1371,7 +1357,6 @@ def FACT(n: int, primes=None):
     Dùng tốt cho n <= 1e10 (với primes precomputed tới 1e5).
     """
     # Precompute primes up to 100000 (sufficient for n <= 1e10)
-    _PRIMES_UP_TO_1E5 = sieve_primes(100_000)
     if n < 1:
         raise ValueError("n must be >= 1")
     if primes is None:
