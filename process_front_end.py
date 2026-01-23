@@ -81,8 +81,27 @@ class euler_num:
 
     def __str__(self):
         return f"{self.value}"
+
     def __format__(self, format_spec):
         return format(self.value, format_spec)
+
+    def __eq__(self, other):
+        return self.value == other
+    
+    def __ne__(self, other):
+        return not self == other
+    
+    def __lt__(self, other):
+        return self.value < other
+    
+    def __le__(self, other):
+        return self < other or self == other
+    
+    def __gt__(self, other):
+        return not self <= other
+    
+    def __ge__(self, other):
+        return not self < other
 complex_choice = False
 def stor_cmplx(choice: int = 0):
     global complex_choice
@@ -436,6 +455,25 @@ class sqrt:
             return numerator / val_denominator
         else:
             return other / self.value
+    def __eq__(self, other):
+        if isinstance(other, sqrt):
+            return self.value == other.value
+        return self.value == other
+    
+    def __ne__(self, other):
+        return not self == other
+    
+    def __lt__(self, other):
+        return self.value < other
+    
+    def __le__(self, other):
+        return self < other or self == other
+    
+    def __gt__(self, other):
+        return not self <= other
+    
+    def __ge__(self, other):
+        return not self < other
 
 # put value.
 e = euler_num()
