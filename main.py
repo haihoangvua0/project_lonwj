@@ -175,7 +175,7 @@ class Calculator_fx:
                                 contents = self.history[self.history_index]
                                 if contents[-1]:
                                         self.history_index -= 1
-                                        self.inputs.insert(0, content[0])
+                                        self.inputs.insert(0, contents[0])
                                         self.inputs.icursor(tk.END)
                                         self.output.insert(0, self.content[1])
                                         self.regulation = "S"
@@ -323,7 +323,6 @@ class Calculator_fx:
                                         free_symbol.append(i)
                         try:
                                 if free_symbol:
-                                        
                                         self.solve_expr = expr
                                         self.solve_vars = free_symbol
                                         self.solve_values = {}
@@ -339,7 +338,7 @@ class Calculator_fx:
                                                 self.output.insert(0, "No solution.")
                                                 self.solve_mode = False
                                         self.output.insert(0, sol)
-                        except: pass
+                        except: self
 
                 elif value == "Abs":
                         if self.finish_eval:
@@ -411,7 +410,7 @@ class Calculator_fx:
                                                         continue
                                                 ba, ex = pair
                                                 text += f"*{ba}^({ex})"
-                                        selaàf.output.delete(0, tk.END)
+                                        self.output.delete(0, tk.END)
                                         self.output.insert(0, text)
                                         self.fact_reg = "N"
                                 else: 
