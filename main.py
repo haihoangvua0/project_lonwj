@@ -18,7 +18,7 @@ SMART_TOKENS = [
         "RandInt(", "pi", "Rnd(", "Ran#",
         "i", "^(", "10^", "Ans", "inf",
         "exp(", "[mod]", "_C_", "_P_",
-        "nth_rt("
+        "nth_rt(", ")/("
 ] + pfe.names + list(pfe.actual_val_const)
 #print(SMART_TOKENS, sep="\n")
 class Calculator_fx:
@@ -31,11 +31,9 @@ class Calculator_fx:
                 self.win.update_idletasks()
                 self.shift = False
                 self.alpha = False
-                self.calc_mode = False
-                self.calc_ing = False
                 self.solve_mode = False
                 self.stor_mode = False
-                self.finish_eval = False
+                self.watch_history = False
                 self.fact_reg = "S"
                 self.history = [] # ("", "", "", True) True -> có thể mở lại lịch sử... False -> tắt chế độ xem lại lịch sử
                 self.history_index = -1
@@ -44,7 +42,7 @@ class Calculator_fx:
                 self.temp_value = 0
                 self.extra_norm = [
                         ["OPTN", "CALC", "", "", "inte", "x"],  
-                        ["", "sqrt", "^2", "^", "log", "ln"],  
+                        ["frac", "sqrt", "^2", "^", "log", "ln"],  
                         ["_", "degs", "^-1", "sin", "cos", "tan"],  
                         ["Stor", "i", "(", ")", "S<=>D", "M+"]
                 ]
@@ -145,7 +143,9 @@ class Calculator_fx:
                                                 return
                                 self.inputs.icursor(pos-1)
                         elif pos == 0:
-                                if not self.inputs.get(): pass
+                                if not self.inputs.get() and self.output.get():
+                                        self.inputs.insert(self.history[-1][0])
+                                        self.inputs.icursor(tk.END)
                                 else: self.inputs.icursor(tk.END)
                 elif value == "->":
                         pos = self.inputs.index(tk.INSERT)
@@ -164,17 +164,21 @@ class Calculator_fx:
                                                 return
                                 self.inputs.icursor(pos+1)
                         elif pos == len(text):
-                                if not self.inputs.get(): pass
+                                if not self.inputs.get() and self.output.get():
+                                        self.inputs.insert(self.history[-1][0])
+                                        self.inputs.icursor(tk.END)
                                 else: self.inputs.icursor(0)
                 elif value == "up":
                         if self.history and (not self.inputs.get() and not self.output.get()):
                                 if self.history_index == -(len(self.history)):
                                         return
-                                self.contents = self.history[self.history_index]
-                                self.history_index -= 1
-                                self.inputs.insert(0, self.content[0])
-                                self.inputs.icursor(tk.END)
-                                self.output.insert(0, self.content[1])
+                                contents = self.history[self.history_index]
+                                if contents[-1]:
+                                        self.history_index -= 1
+                                        self.inputs.insert(0, content[0])
+                                        self.inputs.icursor(tk.END)
+                                        self.output.insert(0, self.content[1])
+                                        self.regulation = "S"
                         else:
                                 if self.finish_eval:
                                         self.finish_eval = False
@@ -189,6 +193,7 @@ class Calculator_fx:
                                 self.inputs.insert(0, self.content[0])
                                 self.inputs.icursor(tk.END)
                                 self.output.insert(0, self.content[1])
+                                self.regulation = "S"
                         else:
                                 if self.finish_eval:
                                         self.finish_eval = False
@@ -249,7 +254,8 @@ class Calculator_fx:
                                 #self.inputs.insert("Ans")
                                 self.output.delete(0, tk.END)
                                 self.finish_eval = False
-                        self.inputs.insert(pos, "()")
+                        actual_text = "(" + (")" if len(self.inputs.get()) > 0 and not self.inputs.get()[pos] else "")
+                        self.inputs.insert(pos, actual_text)
                         self.inputs.icursor(pos + 1)
                 elif value == ")":
                         if self.finish_eval:
@@ -317,8 +323,7 @@ class Calculator_fx:
                                         free_symbol.append(i)
                         try:
                                 if free_symbol:
-                                        self.solve_mode = True
-                                        self.calc_ing = True
+                                        
                                         self.solve_expr = expr
                                         self.solve_vars = free_symbol
                                         self.solve_values = {}
@@ -382,18 +387,15 @@ class Calculator_fx:
                                         self.output.delete(0, tk.END)
                                         self.output.insert(0, ex)
                                         self.finish_eval = True
-                elif value == "S<=>D" and self.finish_eval:
-                        expr = self.inputs.get()
-                        res = pfe.evaluate_expression(expr)
-                        self.temp_value = res
+                elif value == "S<=>D" and self.history:
                         self.output.delete(0, tk.END)
                         if self.regulation == "S":
-                                self.output.insert(0, returning(res, "D"))
+                                self.output.insert(0, self.history[self.history_index][2])
                                 self.regulation = "D"
                         else:
-                                self.output.insert(0, self.temp_value)
+                                self.history[self.history_index][1]
                                 self.regulation = "S"
-                elif value == "FACT" and self.finish_eval: 
+                elif value == "FACT": 
                         number = self.output.get()
                         try:
                                 number = int(number)
@@ -409,7 +411,7 @@ class Calculator_fx:
                                                         continue
                                                 ba, ex = pair
                                                 text += f"*{ba}^({ex})"
-                                        self.output.delete(0, tk.END)
+                                        selaàf.output.delete(0, tk.END)
                                         self.output.insert(0, text)
                                         self.fact_reg = "N"
                                 else: 
@@ -492,69 +494,13 @@ class Calculator_fx:
                                                 self.fact_reg = "S"
                                                 self.finish_eval = True
                                                 self.output.insert(0, str(result))
-                                except Exception:
+                                                self.history.append((expr, result, pfe.returning(result, "D"), True))
+                                except Exception as ex:
                                         self.output.delete(0, tk.END)
-                                        self.output.insert(0, MATH_ERROR)
+                                        self.output.insert(0, ex)
                                         self.finish_eval = True
-                        elif self.calc_ing:
-                                if self.calc_mode:
-                                        try:
-                                                current_var = self.calc_vars[self.calc_index]
-                                                val = pfe.evaluate_expression(self.inputs.get().split("=")[1])
-                                                self.calc_values[current_var] = val
+                                        self.history.append((expr, False))
 
-                                                self.calc_index += 1
-
-                                                # Còn biến tiếp
-                                                if self.calc_index < len(self.calc_vars):
-                                                        self.inputs.delete(0, tk.END)
-                                                        self.inputs.insert(0, f"{self.calc_vars[self.calc_index]}=")
-                                                else:
-                                                # Tính xong
-                                                        res = pfe.calc(expr=self.calc_expr, **self.calc_values)
-                                                        self.output.delete(0, tk.END)
-                                                        self.output.insert(0, str(res))
-
-                                                        self.inputs.delete(0, tk.END)
-                                                        self.inputs.insert(0, self.calc_expr)
-
-                                                        self.calc_mode = True
-                                                        self.calc_ing = True
-                                                        self.calc_index = -1
-                                                        self.finish_eval = True
-                                        except Exception:
-                                                self.output.delete(0, tk.END)
-                                                self.output.insert(0, MATH_ERROR)
-                                                self.finish_eval = True
-                                elif self.solve_mode:
-                                        try:
-                                                current_var = self.solve_vars[self.solve_index]
-                                                val = pfe.evaluate_expression(self.inputs.get().split("=")[1])
-                                                self.solve_values[current_var] = val
-
-                                                self.solve_index += 1
-
-                                                # Còn biến tiếp
-                                                if self.solve_index < len(self.solve_vars):
-                                                        self.inputs.delete(0, tk.END)
-                                                        self.inputs.insert(0, f"{self.solve_vars[self.solve_index]}=")
-                                                else:
-                                                # Tính xong
-                                                        self.inputs.delete(0, tk.END)
-                                                        self.output.delete(0, tk.END)
-                                                        res = pfe.solve_eq(expr=self.solve_expr, **self.solve_values)
-                                                        if isinstance(res, list) and len(res) == 0:
-                                                                self.inputs.insert(0, self.solve_expr)
-                                                                self.output.insert(0, "No Solution.")
-                                                        self.output.insert(0, str(res))
-                                                        self.inputs.insert(0, self.solve_expr)
-
-                                                        self.solve_mode = False
-                                                        self.calc_ing = False
-                                        except Exception:
-                                                self.output.delete(0, tk.END)
-                                                self.output.insert(0, MATH_ERROR)
-                                                self.finish_eval = True
 
                 elif value == "OFF":
                         exit(0)
