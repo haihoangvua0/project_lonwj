@@ -910,7 +910,8 @@ def preprocess_expression(expr: str) -> str:
     import re  
 
     #expr = expr.replace("^", "**")  
-    expr = re.sub(r'\s+', '', expr)  
+    expr = re.sub(r'\s+', '', expr) 
+    expr = expr.replace("×", "*") 
     # -------------------------------  
     # protect expression argument in inte()  
     # inte(a,b,expr)  -> inte(a,b,"expr")  
