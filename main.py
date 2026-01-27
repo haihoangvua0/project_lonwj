@@ -326,7 +326,7 @@ class Calculator_fx:
                                 self.inputs.icursor(0)
                                 pos = 0
                         expr = self.inputs.get()
-                        text = ("*" if (pos > 0 and \
+                        text = ("*" if (0 < pos < len(expr) and \
                                         not any(expr[pos-len(i)] \
                                                 for i in sorted(pfe.names + ["Ans", "pi", "e"], 
                                                                 key=len, 
@@ -416,10 +416,10 @@ class Calculator_fx:
                                         pass
                                 elif self.history[self.history_index][3]:
                                         factors = self.history[self.history_index][3]
-                                        text = f"{factor[0][0]}^({factor[0][1]})"
-                                        for bass, exponent in factors[1:-1]:
+                                        text = f"{factors[0][0]}^({factors[0][1]})"
+                                        for base, exponent in factors[1:-1]:
                                                 text += f"*{base}^({exponent})"
-                                        text += f"*{factor[-1][0]}^({factor[-1][1]})"
+                                        text += f"*{factors[-1][0]}^({factors[-1][1]})"
                                         self.output.delete(0, tk.END)
                                         self.output.insert(0, text)
                                         self.fact_reg = "N"
