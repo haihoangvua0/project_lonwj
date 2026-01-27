@@ -22,9 +22,10 @@ SMART_TOKENS = [
 ] + pfe.names + list(pfe.actual_val_const)
 #print(SMART_TOKENS, sep="\n")
 
-ENV_STATE = ["Choose Mode", "Calculate", "Complex", 
+ENV_STATES = ["Choose Mode", "Calculate", "Complex", 
              "Base-N", "Matrix", "Vector", "Statistics",
-             ""
+             "Distribution", "Table", "Equations/Func",
+             "Inequality", "Verify", "Ratio"
 ]
 class Calculator_fx:
         #global SHIFT_MODE, ALPHA_MODE, CALC_MODE, SOLVE_MODE
@@ -45,7 +46,7 @@ class Calculator_fx:
                 self.history_index = -1
                 self.finish_eval = False
                 self.regulation = "S"
-                self.ENV_STATE = "Calculate"
+                self.env_state = "Calculate"
                 self.extra_norm = [
                         ["OPTN", "CALC", "", "", "inte", "x"],  
                         ["frac", "sqrt", "^2", "^", "log", "ln"],  
@@ -138,7 +139,8 @@ class Calculator_fx:
                         if self.finish_eval:
                                 self.finish_eval = False # at all cost
                                 self.inputs.icursor(tk.END)
-                        elif self.eval_state in ["solve_mode", "calc_ing", "calc_ing", "calc_ready", "calc_finish"]:
+                        elif self.eval_state in ["solve_mode",
+                                                 "calc_ready", "calc_finish"]:
                                 self.eval_state = "eval"
                                 self.output.delete(0, tk.END)
                         self.output.delete(0, tk.END)
@@ -152,8 +154,8 @@ class Calculator_fx:
                                                 return
                                 self.inputs.icursor(pos-1)
                         elif pos == 0:
-                                if not self.inputs.get() and self.output.get():
-                                        self.inputs.insert(self.history[-1][0])
+                                if not self.inputs.get() and not self.output.get():
+                                        self.inputs.insert(0, self.current)
                                         self.inputs.icursor(tk.END)
                                 else: self.inputs.icursor(tk.END)
                 elif value == "->":
@@ -162,7 +164,8 @@ class Calculator_fx:
                         if self.finish_eval:
                                 self.finish_eval = False # at all cost
                                 self.inputs.icursor(0)
-                        elif self.eval_state in ["solve_mode", "calc_ing", "calc_ing", "calc_ready", "calc_finish"]:
+                        elif self.eval_state in ["solve_mode", 
+                                                 "calc_ready", "calc_finish"]:
                                 self.eval_state = "eval"
                                 self.output.delete(0, tk.END)
                         #text = self.inputs.get()
@@ -176,20 +179,22 @@ class Calculator_fx:
                                                 return
                                 self.inputs.icursor(pos+1)
                         elif pos == len(text):
-                                if not self.inputs.get() and self.output.get():
-                                        self.inputs.insert(self.history[-1][0])
+                                if not self.inputs.get() and not self.output.get():
+                                        self.inputs.insert(0, self.current)
                                         self.inputs.icursor(tk.END)
                                 else: self.inputs.icursor(0)
                 elif value == "up":
                         if self.history and ((not self.inputs.get() and not self.output.get()) or self.finish_eval):
-                                if self.history_index == -(len(self.history)):
+                                if self.history_index < -(len(self.history)):
                                         return
                                 contents = self.history[self.history_index]
                                 if contents[-1]:
-                                        self.history_index -= 1
+                                        self.history_index = (self.history_index - 1) if self.history_index > -(len(self.history)) else self.history_index
+                                        self.inputs.delete(0, tk.END)
                                         self.inputs.insert(0, contents[0])
                                         self.inputs.icursor(tk.END)
-                                        self.output.insert(0, self.content[1])
+                                        self.output.delete(0, tk.END)
+                                        self.output.insert(0, contents[1])
                                         self.regulation = "S"
                                         self.fact_reg = "S"
                                         self.finish_eval = True
@@ -197,20 +202,22 @@ class Calculator_fx:
                                 if self.finish_eval:
                                         self.finish_eval = False
                                         self.output.delete(0, tk.END)
-                                elif self.eval_state in ["solve_mode", "calc_ing", "calc_ing", "calc_ready", "calc_finish"]:
+                                elif self.eval_state in ["solve_mode", "calc_ready", "calc_finish"]:
                                         self.eval_state = "eval"
                                         self.output.delete(0, tk.END)
                                 self.inputs.icursor(0)
                 elif value == "down":
                         if self.history and ((not self.inputs.get() and not self.output.get()) or self.finish_eval):
-                                if self.history_index == -1:
+                                if self.history_index > -1:
                                         return
                                 contents = self.history[self.history_index]
                                 if contents[-1]:
-                                        self.history_index += 1
-                                        self.inputs.insert(0, self.content[0])
+                                        self.history_index = (self.history_index + 1) if self.history_index < -1 else self.history_index
+                                        self.inputs.delete(0, tk.END)
+                                        self.inputs.insert(0, contents[0])
                                         self.inputs.icursor(tk.END)
-                                        self.output.insert(0, self.content[1])
+                                        self.output.delete(0, tk.END)
+                                        self.output.insert(0, contents[1])
                                         self.regulation = "S"
                                         self.fact_reg = "S"
                                         self.finish_eval = True
@@ -218,7 +225,8 @@ class Calculator_fx:
                                 if self.finish_eval:
                                         self.finish_eval = False
                                         self.output.delete(0, tk.END)
-                                elif self.eval_state in ["solve_mode", "calc_ing", "calc_ing", "calc_ready", "calc_finish"]:
+                                elif self.eval_state in ["solve_mode", 
+                                                         "calc_ready", "calc_finish"]:
                                         self.eval_state = "eval"
                                         self.output.delete(0, tk.END)
                                 self.inputs.icursor(tk.END)
@@ -376,9 +384,6 @@ class Calculator_fx:
                         except Exception as ex:
                                 self.output.delete(0, tk.END) # clean =)))
                                 self.output.insert(0, ex)
-                
-
-
                 elif value == "Abs":
                         if self.finish_eval:
                                 self.inputs.delete(0, tk.END)
@@ -406,7 +411,23 @@ class Calculator_fx:
                                 self.output.insert(0, self.history[self.history_index][1])
                                 self.regulation = "S"
                 elif value == "FACT" and self.finish_eval:
-                        pass
+                        if self.fact_reg == "S":
+                                if isinstance(self.history[self.history_index][1], complex):
+                                        pass
+                                elif self.history[self.history_index][3]:
+                                        factors = self.history[self.history_index][3]
+                                        text = f"{factor[0][0]}^({factor[0][1]})"
+                                        for bass, exponent in factors[1:-1]:
+                                                text += f"*{base}^({exponent})"
+                                        text += f"*{factor[-1][0]}^({factor[-1][1]})"
+                                        self.output.delete(0, tk.END)
+                                        self.output.insert(0, text)
+                                        self.fact_reg = "N"
+                        elif self.fact_reg == "N":
+                                self.output.delete(0, tk.END)
+                                self.output.insert(0, str(self.history[self.history_index][2]))
+                                self.fact_reg = "S"
+
                 if self.shift:
                         self.shift = False
                         self.extra_frame.destroy()
@@ -421,45 +442,53 @@ class Calculator_fx:
                         self.build_main_grid()
         def equal_handle(self):
                 self.output.delete(0, tk.END)
-                try:
-                        expr = self.inputs.get()
-                        if "=" in expr:
-                                self.output.insert(0, MATH_ERROR)
-                                self.fact_reg = self.regulation = ""
-                                self.finish_eval = True
-                                return
-                        result = pfe.evaluate_expression(expr)
-                        if isinstance(result, tuple):
-                                self.finish_eval = True
-                                self.regulation = self.fact_reg = ""
-                                if result[-1] == "mod":
-                                        self.output.insert(0, f"{result[0]}, R={result[1]}")
-                                elif result[-1] == "pol":
-                                        self.output.insert(0, f"r={result[0]}, {pfe.theta_symbol}={result[1]}")
-                                elif result[-1] == "rec":
-                                        self.output.insert(0, f"x={result[0]}, y={result[1]}")
-                        elif isinstance(result, complex):
-                                self.regulation = "S"
-                                self.fact_reg = "S"
-                                self.finish_eval = True
-                                self.history.append((expr, result, "\n", pfe.Pol(result.real, result.imag), True))
-                                if complex_choice:
-                                        self.output.insert(0, pc.format_complex_output(str(result)))
-                                else:
-                                        self.output.insert(0, str(result))
-                        else:
-                                self.regulation = "S"
-                                self.fact_reg = "S"
-                                self.finish_eval = True
-                                self.output.insert(0, str(result))
-                                self.history.append((expr, result, pfe.returning(result, "D"), pfe.FACT(result), True))
-                                self.current = expr
-                                
-                except Exception as ex:
-                        self.output.delete(0, tk.END)
-                        self.output.insert(0, ex)
-                        self.finish_eval = True
-                        self.current = expr
+                if self.env_state == "Calculate":
+                        if self.eval_state == "eval":
+                                try:
+                                        expr = self.inputs.get()
+                                        if "=" in expr:
+                                                self.output.insert(0, MATH_ERROR)
+                                                self.fact_reg = self.regulation = ""
+                                                self.finish_eval = True
+                                                return
+                                        with open("new_run.txt", "a") as f:
+                                                print(f'{expr} -> {pfe.preprocess_expression(expr)}\n', end='', file=f)
+                                        result = pfe.evaluate_expression(expr)
+                                        if isinstance(result, tuple):
+                                                self.finish_eval = True
+                                                self.regulation = self.fact_reg = ""
+                                                if result[-1] == "mod":
+                                                        self.output.insert(0, f"{result[0]}, R={result[1]}")
+                                                elif result[-1] == "pol":
+                                                        self.output.insert(0, f"r={result[0]}, {pfe.theta_symbol}={result[1]}")
+                                                elif result[-1] == "rec":
+                                                        self.output.insert(0, f"x={result[0]}, y={result[1]}")
+                                        elif isinstance(result, complex):
+                                                self.regulation = "S"
+                                                self.fact_reg = "S"
+                                                self.finish_eval = True
+                                                self.history.append((expr, result, "\n", pfe.Pol(result.real, result.imag), True))
+                                                if complex_choice:
+                                                        self.output.insert(0, pc.format_complex_output(str(result)))
+                                                else:
+                                                        self.output.insert(0, str(result))
+                                        else:
+                                                self.regulation = "S"
+                                                self.fact_reg = "S"
+                                                self.finish_eval = True
+                                                self.output.insert(0, str(result))
+                                                if isinstance(result, (pfe.sqrt, float, pfe.Decimal, pfe.Fraction)) or result < 1:
+                                                        self.history.append((expr, result, pfe.returning(result, "D"), [], True))
+                                                else:
+                                                        self.history.append((expr, result, pfe.returning(result, "D"), pfe.FACT(result), True))
+                                                self.history_index = -1
+                                                self.current = expr
+                
+                                except Exception as ex:
+                                        self.output.delete(0, tk.END)
+                                        self.output.insert(0, ex)
+                                        self.finish_eval = True
+                                        self.current = expr
         def on_press4(self, value):
                 self.inputs.focus_set()
                 pos = self.inputs.index(tk.INSERT)
