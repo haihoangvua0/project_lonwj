@@ -458,6 +458,8 @@ class sqrt:
 
     def __ge__(self, other):
         return not self < other
+    def __neg__(self):
+        return (-1)*self
 
 # put value.
 e = euler_num()
@@ -672,8 +674,13 @@ def sin(x):
     return -base.get(360 - beta, returning(math.sin(a)))
 
 def cos(x):
-    a = _to_radian_if_needed(x)
-    return sin(pi/2 - a)
+    global ANGLE_MODE
+    if ANGLE_MODE == "DEG":
+        return sin(90 - x)
+    elif ANGLE_MODE == "RAD":
+        return sin(pi/2 - x)
+    elif ANGLE_MODE == "GRA":
+        return sin(100 - x)
 
 def tan(x):
     c = cos(x)
