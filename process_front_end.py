@@ -88,19 +88,19 @@ class euler_num:
 
     def __eq__(self, other):
         return self.value == other
-    
+
     def __ne__(self, other):
         return not self == other
-    
+
     def __lt__(self, other):
         return self.value < other
-    
+
     def __le__(self, other):
         return self < other or self == other
-    
+
     def __gt__(self, other):
         return not self <= other
-    
+
     def __ge__(self, other):
         return not self < other
 complex_choice = False
@@ -296,7 +296,7 @@ class sqrt:
                 display += "+" + t
 
         return display
-    
+
     def __float__(self):
         v = self.value
         if isinstance(v, complex):
@@ -311,7 +311,7 @@ class sqrt:
 
     def __format__(self, format_spec):
         return format(str(self), format_spec)
-    
+
     # Math doing
     def __add__(self, other):
         if isinstance(other, sqrt):
@@ -443,19 +443,19 @@ class sqrt:
         if isinstance(other, sqrt):
             return self.value == other.value
         return self.value == other
-    
+
     def __ne__(self, other):
         return not self == other
-    
+
     def __lt__(self, other):
         return self.value < other
-    
+
     def __le__(self, other):
         return self < other or self == other
-    
+
     def __gt__(self, other):
         return not self <= other
-    
+
     def __ge__(self, other):
         return not self < other
 
@@ -639,31 +639,51 @@ def convert_deg(x: int | float | Fraction | Decimal):
         return returning(x * 200 / pi)
     return returning(x)   # RAD
 # 3. Trig functions (Casio-compatible) + Hypebolic Funcs
-def sin(x: float):
+def sin(x):
     a = _to_radian_if_needed(x)
 
+    # bẫy bội của pi
     k = round(a / pi)
     if abs(a - k * pi) <= 1e-12:
         return 0
 
-    return returning(math.sin(a))
-def cos(x: float):
-    a = _to_radian_if_needed(x)
+    beta = (180 * a) / pi
+    if not abs(beta - round(beta)) <= 1e-14:
+        return returning(math.sin(a))
 
-    k = round((a - pi/2) / pi)
-    if abs(a - (pi/2 + k * pi)) <= 1e-12:
-        return 0
+    beta = int(round(beta)) % 360
 
-    return returning(math.cos(a))
-def tan(x: float):
+    base = {
+        0: 0,
+        15: Fraction(1,4)*(sqrt(6) - sqrt(2)),
+        30: Fraction(1,2),
+        45: Fraction(1,2)*sqrt(2),
+        60: Fraction(1,2)*sqrt(3),
+        75: Fraction(1,4)*(sqrt(6) + sqrt(2)),
+        90: 1
+    }
+
+    if beta <= 90:
+        return base.get(beta, returning(math.sin(a)))
+    if beta <= 180:
+        return base.get(180 - beta, returning(math.sin(a)))
+    if beta <= 270:
+        return -base.get(beta - 180, returning(math.sin(a)))
+    return -base.get(360 - beta, returning(math.sin(a)))
+
+def cos(x):
     a = _to_radian_if_needed(x)
-    if math.isclose(math.cos(a), 0, abs_tol=1e-15):
-        return float("inf")
-    return returning(math.tan(a))
+    return sin(pi/2 - a)
+
+def tan(x):
+    c = cos(x)
+    if c == 0:
+        return float('inf')
+    return sin(x) / c
 
 def asin(x: float):
     v = math.asin(x)
-    return convert_deg(v)   # RAD
+    return convert_deg(v)
 
 def acos(x: float):
     v = math.acos(x)
@@ -911,7 +931,7 @@ def preprocess_expression(expr: str) -> str:
 
     #expr = expr.replace("^", "**")  
     expr = re.sub(r'\s+', '', expr) 
-    expr = expr.replace("×", "*") 
+    #expr = expr.replace("×", "*") 
     # -------------------------------  
     # protect expression argument in inte()  
     # inte(a,b,expr)  -> inte(a,b,"expr")  
@@ -1126,8 +1146,8 @@ def preprocess_expression(expr: str) -> str:
     #expr = re.sub(r'([A-Za-z])(?=pi)', r'\1*', expr)  
     new = names + ["pi", "e", "Ans"]
     for i in sorted(new, key=len, reverse=True):
-        if re.compile(r"({i})([A-Za-z])"): continue
-        expr = re.sub(rf"([A-Za-z0-9_.])({i})", r"\1*\2", expr)
+        for j in sorted(new, key=len, reverse=True):
+            expr = re.sub(rf"({i})({j})", r"\1*\2", expr)
     # -------------------------------  
     # restore scientific notation  
     # -------------------------------  
@@ -1358,6 +1378,7 @@ def FACT(n: int, primes=None):
     Dùng tốt cho n <= 1e10 (với primes precomputed tới 1e5).
     """
     # Precompute primes up to 100000 (sufficient for n <= 1e10)
+    if isinstance(n, (sqrt, float, Decimal)): return []
     if n < 1:
         raise ValueError("n must be >= 1")
     if primes is None:
