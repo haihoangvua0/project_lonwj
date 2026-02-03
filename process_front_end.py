@@ -15,7 +15,10 @@ theta_symbol = "\u03B8"
 pi_symbol = "\u03C0"        
 degree = "\u00B0"    
 angle = "\u2220"     
-sqrt_symbol = "\u221A"      
+sqrt_symbol = "\u221A"
+analyze_deg = "\u25FB"
+radian_deg = "\u02B3"
+gradian_deg = "\u1D4D"
 
 # Default vars needed
 Randint = random.randint
@@ -140,8 +143,12 @@ class sqrt:
         self.coef = None
         self.radicand = None
         self.sums_terms = None
+        # itself:
+        if isinstance(n, sqrt):
+            self.coef = customised_sqrt(n.value)
+            self.radicand = 1
         # ===== REAL =====
-        if isinstance(n, (int, float, Fraction, Decimal)):
+        elif isinstance(n, (int, float, Fraction, Decimal)):
             self.val = customised_sqrt(n)
             if n >= 0:
                 if isinstance(n, int): 
@@ -351,14 +358,14 @@ class sqrt:
         if isinstance(other, sqrt):
             items_other = other.items
             items_self = self.items
-            terms = []
+            terms = 0
             for i in items_self:
                 for j in items_other:
                     out = i[0] * j[0]
                     ins = i[1] * j[1]
                     outside, inside = split_in_out(ins)
-                    terms.append((out*outside, inside))
-            return sqrt(terms)
+                    terms += sqrt([(outside*out, inside)])
+            return terms
         elif isinstance(other, (int, float, Fraction, Decimal, complex)):
             if isinstance(other, (int, float, Fraction, Decimal)):
                 if other == 1: return self
@@ -375,11 +382,14 @@ class sqrt:
         return self * other
     def __pow__(self, other):
         if isinstance(other, int):
-            if 0 <= (other) <= 5:
+            if 2 <= (other) <= 5:
                 res = 1
                 for _ in range(other):
                     res *= self
                 return res
+            elif other == 0: return 1
+            elif other == 1: return self
+            elif other < 0: return 1/(self**abs(other))
             else: return Pow(self.value, other)
         elif isinstance(other, (float, Decimal, Fraction)):
             n = float(other)
@@ -461,6 +471,204 @@ class sqrt:
     def __neg__(self):
         return (-1)*self
 
+class math_set:
+    def __init__(self, *, left: tuple | float | None = None, right: tuple | float | None = None, in_range: list | None = None):
+        self.criteria = None
+        if left is not None \
+           and right is not None \
+           and in_range is None:
+            # Check special cases
+            if ((not left[1] and right[1]) \
+                or (left[1] and not right[1])\
+                or (not left[1] and not right[1])) \
+                and (left[0] >= right[0]):
+                self.criteria = set()
+            elif (left[1] and right[1]) \
+                and (left[0] == right[0]):
+                self.criteria = {left[0]}
+            if (isinstance(left, float) and left == float('-inf')) or (isinstance(left, tuple) and float('-inf') in left):
+                left = (left, False)
+            if (isinstance(right, float) and right == float('inf')) or (isinstance(right, tuple) and float('inf') in right):
+                right = (right, False)
+            self.criteria = [(left, right)]
+        elif left is None \
+           and right is None \
+           and in_range is not None:
+            self.criteria = in_range
+        else:
+            raise ValueError("Cannot initialize the set.")
+         
+    def __repr__(self):
+        return str(self)
+    def __str__(self):
+        def process(l):
+            left, right = l
+            needed = ""
+            # Left
+            if left == float('-inf') or (isinstance(left, tuple) and float('-inf') in left):
+                needed += "(-float('inf');"
+            else:
+                if isinstance(left, (int, float, Fraction, Decimal, str)): raise ValueError("Unknown argument.")
+                num, get = left
+                if get:
+                    needed += f"[{num};"
+                else:
+                    needed += f"({num};"
+            # Right
+            if right == float('inf') or (isinstance(right, tuple) and float('inf') in right):
+                needed += "float('inf'))"
+            else:
+                if isinstance(right, (int, float, Fraction, Decimal, str)): raise ValueError("Unknown argument.")
+                num, get = right
+                if get:
+                    needed += f"{num}]"
+                else:
+                    needed += f"{num})"
+            return needed
+        if isinstance(self.criteria, set): return str(self.criteria)
+        dis_list = []
+        for i in self.criteria:
+            dis_list.append(process((i[0], i[1])))
+        display = "|".join(dis_list)
+        return display
+    def __add__(self, other):
+        if not isinstance(other, math_set):
+            return NotImplemented
+
+        if self.criteria == set() or other.criteria == set():
+            return math_set(in_range=[])
+
+        new_ranges = []
+
+        for l1, r1 in self.criteria:
+            for l2, r2 in other.criteria:
+                left_val = l1[0] + l2[0]
+                right_val = r1[0] + r2[0]
+
+                left_closed = l1[1] and l2[1]
+                right_closed = r1[1] and r2[1]
+
+                new_ranges.append(((left_val, left_closed),
+                                (right_val, right_closed)))
+
+        return math_set(in_range=new_ranges)
+    def __sub__(self, other):
+        return NotImplemented
+    def __mul__(self, other):
+        if not isinstance(other, math_set):
+            return NotImplemented
+
+        if self.criteria == set() or other.criteria == set():
+            return math_set(in_range={})
+
+        new_ranges = []
+
+        for l1, r1 in self.criteria:
+            for l2, r2 in other.criteria:
+                a, b = l1[0], r1[0]
+                c, d = l2[0], r2[0]
+
+                values = [
+                    a * c,
+                    a * d,
+                    b * c,
+                    b * d
+				]
+
+                min_val = min(values)
+                max_val = max(values)
+
+                # Biên đóng nếu tồn tại ít nhất một tích đạt min/max với biên đóng
+                def is_closed(val):
+                    for x, x_closed in [l1, r1]:
+                        for y, y_closed in [l2, r2]:
+                            if x * y == val and x_closed and y_closed:
+                                return True
+                    return False
+
+                left_closed = is_closed(min_val)
+                right_closed = is_closed(max_val)
+
+                new_ranges.append(((min_val, left_closed),
+                                    (max_val, right_closed)))
+
+        return math_set(in_range=new_ranges)
+    def __truediv__(self, other):
+        return NotImplemented
+    def __floordiv__(self, other):
+        return NotImplemented
+    def __radd__(self, other):
+        return NotImplemented
+    def __rsub__(self, other):
+        return NotImplemented
+    def __rmul__(self, other):
+        return NotImplemented
+    def __rtruediv__(self, other):
+        return NotImplemented
+    def __rfloordiv__(self, other):
+        return NotImplemented
+    def __contains__(self, other):
+        if isinstance(other, (int, float, Decimal, Fraction)):
+            if self.criteria == set(): return False
+            if len(self.criteria) == 1: return other in self.criteria
+            now = False
+            for left, right in self.criteria:
+                if left == float("-inf") and not right == float('inf'):
+                    if right[1]:
+                        now = (other <= right[0])
+                    else:
+                        now = (other < right[0])
+                elif not left == float("-inf") and right == float('inf'):
+                    if left[1]:
+                        now = (other >= left[0])
+                    else:
+                        now = (other > left[0])
+                elif left == float("-inf") and right == float('inf'): return True
+                else:
+                    if left[1]:
+                        if right[1]:
+                            now = (left[0] <= other <= right[0])
+                        else:
+                            now = (left[0] <= other < right[0])
+                    else:
+                        if right[1]:
+                            now = (left[0] < other <= right[0])
+                        else:
+                            now = (left[0] < other < right[0])
+                if now: return now
+            return now
+        if isinstance(other, math_set):
+            if self.criteria == set() and not other.criteria == set(): return False
+            if not self.criteria == set() and other.criteria == set(): return True
+            def interval_in(a, b):
+                # a, b: ((l_val, l_closed), (r_val, r_closed))
+                (al, acl), (ar, acr) = a
+                (bl, bcl), (br, bcr) = b
+                # Check left
+                if al < bl:
+                    return False
+                if al == bl and acl and not bcl:
+                    return False
+                # Check right
+                if ar > br:
+                    return False
+                if ar == br and acr and not bcr:
+                    return False
+                return True
+            self_sorted = sorted(self.criteria, key=lambda x: [x[0], x[1]])
+            other_sorted = sorted(other.criteria, key=lambda x: [x[0], [1]])
+            for a_interval in other.criteria:
+                ok = False
+                for b_interval in self.criteria:
+                    if interval_in(a_interval, b_interval):
+                        ok = True
+                        break
+                if not ok:
+                    return False
+            return True
+#print(-1 in math_set(in_range=[((0, True), (9, False)), ((12, True), float('inf'))]))
+            
+
 # put value.
 e = euler_num()
 getcontext().prec = 50
@@ -487,6 +695,7 @@ Ans = 0
 def stor(**var_input: int):
     global variable, A, B, C, D, E, F, x, y, z, M, names
     # Cập nhật variable theo var_input
+    #print(variable)
     for k, v in var_input.items():
         # Nếu tên biến hợp lệ (A, B, C, D, E, F, x, y, z, M)
         if k in names:
@@ -505,6 +714,7 @@ def stor(**var_input: int):
             f.write(f"{i}\n")
 
 def stor_ans():
+    global Ans
     stor_ = Ans
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -513,7 +723,7 @@ def stor_ans():
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(str(stor_))
-stor_ans()
+#stor_ans()
 
 def open_ans():
     global Ans
@@ -525,13 +735,6 @@ def open_ans():
     with open(file_path, "r", encoding="utf-8") as f:
         Ans = f.readlines()[-1]
         Ans = evaluate_expression(Ans)
-
-
-a = {
-    "x": 0
-}
-stor(**a)
-del a
 
 # 1. Constants
 actual_val_const = {
@@ -796,6 +999,8 @@ def returning(n: int | float | Decimal | sqrt | complex,
             return n.value
         elif choice == "S":
             return n
+    elif isinstance(n, euler_num):
+        return n.value
     # ----------------------
     # 6) Thử phân tích dạng a*sqrt(b)
     # ----------------------
@@ -943,30 +1148,46 @@ def preprocess_expression(expr: str) -> str:
     # protect expression argument in inte()  
     # inte(a,b,expr)  -> inte(a,b,"expr")  
     # -------------------------------  
+    def add_close_parentheses(expr: str):
+        from collections import Counter
+        list_of_parentheses = []
+        for i in expr:
+            if i == "(" or ')': list_of_parentheses.append(i)
+        if len(list_of_parentheses) == 0: return expr
+        if list_of_parentheses[0] == ")": raise ValueError(MATH_ERROR)
+        count = Counter(list_of_parentheses)
+        if count["("] > count[")"]:
+            text = expr + (")" * (count["("] - count[")"]))
+            return text
+        elif count["("] == count[")"]:
+            return expr
+        else: raise ValueError(MATH_ERROR)
+    expr = add_close_parentheses(expr)
+
     def repl_inte(m):  
-        low, high, expr = m.groups()  
-        return f'inte({low},{high},"{expr}")'  
+        expr, low, high = m.groups()  
+        return f'inte("{expr}",{low},{high})'  
 
     expr = re.sub(  
-        r'inte\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*(.+)\s*\)$',  
+        r'inte\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]*)\s*\)',  
         repl_inte,  
         expr  
     )  
     def repl_sigma(m):  
-        low, high, expr = m.groups()  
-        return f'sums({low},{high},"{expr}")'  
+        expr, low, high = m.groups()  
+        return f'sums("{expr}",{low},{high})'  
 
     expr = re.sub(  
-        r'sums\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*(.+)\s*\)$',  
+        r'sums\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]*)\s*\)',  
         repl_sigma,  
         expr  
     )  
     def repl_muls(m):  
-        low, high, expr = m.groups()  
-        return f'muls({low},{high},"{expr}")'  
+        expr, low, high = m.groups()  
+        return f'muls("{expr}",{low},{high})'   
 
     expr = re.sub(  
-        r'muls\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*(.+)\s*\)$',  
+        r'muls\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]*)\s*\)',  
         repl_muls,  
         expr  
     )   
@@ -1121,10 +1342,11 @@ def preprocess_expression(expr: str) -> str:
             )
 
         return expr
-    # Do scientific num is protected -> ...
+    # Do func is protected -> ...
     expr = parse_power(expr)
     for i, f in enumerate(func_calls):  
-        expr = expr.replace(f"__FUNC{i}__", f)  
+        expr = expr.replace(f"__FUNC{i}__", f) 
+    #expr = add_close_parentheses(expr) # if needed
     # -------------------------------  
     # protect scientific notation  
     # -------------------------------  
@@ -1148,12 +1370,14 @@ def preprocess_expression(expr: str) -> str:
     # implicit multiplication  
     # -------------------------------   
     expr = re.sub(r'(\d)\(', r'\1*(', expr)  
-    expr = re.sub(r'\)(\d|[A-Za-z])', r')*\1', expr)  
+    expr = re.sub(r'\)\(', ')*(', expr)  
     expr = re.sub(r'(\d)([A-Za-z])', r'\1*\2', expr)  
     #expr = re.sub(r'([A-Za-z])(?=pi)', r'\1*', expr)  
     new = names + ["pi", "e", "Ans"]
     for i in sorted(new, key=len, reverse=True):
         for j in sorted(new, key=len, reverse=True):
+            if (i == "e" and j == "x") or (i == "x" and j == "e"):
+                   continue
             expr = re.sub(rf"({i})({j})", r"\1*\2", expr)
     # -------------------------------  
     # restore scientific notation  
@@ -1194,7 +1418,8 @@ def evaluate_expression(expr: str,
         "Pol": Pol,
         "modulo": modulo,
         "sqrt": sqrt,
-        "exp": exp
+        "exp": exp,
+        "inf": float("inf")
     }
     if complex_choice:
         safe.pop("Rec")
@@ -1213,7 +1438,6 @@ def evaluate_expression(expr: str,
     } | ({
         "i": 1j
     } if complex_choice else {}))
-    # Nếu SymPy fail -> eval
     avail_vars = {k: v for k, v in zip(names, variable)}
     new_ |= avail_vars
     safe |= new_
@@ -1223,131 +1447,181 @@ def evaluate_expression(expr: str,
     Ans = res
     return res
 
+def solve_manually(expr: str, var='x', *, ask: bool = False, **vars_val):
+    pass
 def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
-    global A, B, C, D, E, F, x, y, z, M, actual_val_const, Ans
-    from sympy import sympify, Eq, Symbol, solve
-    #try:
-    #expr = expr.replace("^", "**")
-
-    # Nếu không có dấu "=", coi là =0
-    if "=" not in expr:
-        expr = expr + "=0"
-
-    left, right = expr.split("=")
-    left = preprocess_expression(left); right = preprocess_expression(right)
-    # Lấy các biến trong biểu thức
-    #from sympy import sympify
-    symbols_left = list(sympify(left).free_symbols)
-    symbols_right = list(sympify(right).free_symbols)
-    #all_symbols = set(map(str, symbols_left + symbols_right))
-
-    # Lấy giá trị biến đã lưu (A, B, C, ...)
-    avail_var = {
-        "A": A,
-        "B": B,
-        "C": C,
-        "D": D,
-        "E": E,
-        "F": F,
-        "y": y,
-        "z": z,
-        "M": M,
-    }
-    FUNC_MAP = {
-        "sin": sin, "cos": cos, "tan": tan,
-        "asin": asin, "acos": acos, "atan": atan,
-        "ln": ln,
-        "sums": sums,
-        "muls": muls,
-        "d_dx": d_dx,
-        "inte": inte,
-        "log": log,
-        "pi": pi,
-        "e": e,
-        "comb": comb,
-        "factorial": factorial,
-        "perm": perm, 
-        "pow": Pow,
-        "Pow": Pow,
-        "abs": abs,
-        #"frac": Fraction,
-        "nth_rt": nth_root,
-        "gcd": gcd,
-        "lcm": lcm,
-        "Ran#": Ran_,
-        "RandInt": Randint,
-        "Int": int,
-        "Rnd": Rnd,
-        "Rec": Rec,
-        "Pol": Pol,
-        "modulo": modulo,
-        "sqrt": sqrt,
-        "exp": exp
-    }
-    if complex_choice:
-        FUNC_MAP.pop("Rec")
-        FUNC_MAP.pop("Pol")
-        FUNC_MAP.update({
-            "i": 1j,
-            "ImP": ImP,
-            "ReP": ReP,
-            "Arg": Arg,
-            "Conjg": Conjg
-        })
-    # Thay thế các biến đã lưu vào biểu thức
-    local_dict = avail_var.copy()
-    # Thêm các hằng số toán học nếu cần
-    local_dict.update(actual_val_const)
-    local_dict.update(vars_val)
-    # Inject centralized function map so sympify/eval has access to helpers
-    local_dict.update(FUNC_MAP)
-    stor(**vars_val)
-    left = sympify(left, locals=local_dict)
-    right = sympify(right, locals=local_dict)
-    equation = Eq(left, right)
-
-    symbol = Symbol(var)
-    sol = solve(equation, symbol)
-
-    if not sol:
+    try:
+        global A, B, C, D, E, F, x, y, z, M, actual_val_const, Ans  
+        from sympy import sympify, Eq, Symbol, solve  
+      
+        # Nếu không có dấu "=", coi là =0  
+        if "=" not in expr:  
+            expr = expr + "=0"  
+      
+        left, right = expr.split("=")  
+        left = preprocess_expression(left); right = preprocess_expression(right)  
+        # Lấy giá trị biến đã lưu (A, B, C, ...)  
+        avail_var = {  
+            "A": A,  
+            "B": B,  
+            "C": C,  
+            "D": D,  
+            "E": E,  
+            "F": F,  
+            "y": y,  
+            "z": z,  
+            "M": M,  
+        }  
+        FUNC_MAP = {  
+            "sin": sin, "cos": cos, "tan": tan,  
+            "asin": asin, "acos": acos, "atan": atan,  
+            "ln": ln,   
+            "log": log,  
+            "pi": pi,  
+            "e": e,  
+            "comb": comb,  
+            "factorial": factorial,  
+            "perm": perm,   
+            "pow": Pow,  
+            "Pow": Pow,  
+            "abs": abs,  
+            #"frac": Fraction,  
+            "nth_rt": nth_root,  
+            "gcd": gcd,  
+            "lcm": lcm,  
+            "Ran#": Ran_,  
+            "RandInt": Randint,  
+            "Int": int,  
+            "Rnd": Rnd,  
+            "Rec": Rec,  
+            "Pol": Pol,  
+            "modulo": modulo,  
+            "sqrt": sqrt,  
+            "exp": exp  
+        }  
+        if complex_choice:  
+            FUNC_MAP.pop("Rec")  
+            FUNC_MAP.pop("Pol")  
+            FUNC_MAP.update({  
+                "i": 1j,  
+                "ImP": ImP,  
+                "ReP": ReP,  
+                "Arg": Arg,  
+                "Conjg": Conjg  
+            })
+        # Thay thế các biến đã lưu vào biểu thức  
+        local_dict = avail_var.copy()  
+        # Thêm các hằng số toán học nếu cần  
+        local_dict.update(actual_val_const)  
+        local_dict.update(vars_val)  
+        # Inject centralized function map so sympify/eval has access to helpers  
+        #local_dict.update(FUNC_MAP)  
+        stor(**vars_val)  
+        left = sympify(left, locals=local_dict)  
+        right = sympify(right, locals=local_dict)  
+        equation = Eq(left, right)  
+      
+        symbol = Symbol(var)  
+        sol = solve(equation, symbol)  
+      
+        if not sol:  
+            return []  
+      
+        # Chỉ trả nghiệm thực đầu tiên  
+      
+        if ask:  
+            if not app:  
+                res = []  
+                for s in sol:  
+                    re, im = s.as_real_imag()  
+      
+                    re_f = float(re.evalf())  
+                    im_f = float(im.evalf())  
+      
+                    if abs(im_f) < 1e-50:  
+                        # nghiệm thực  
+                        res.append(returning(re_f))  
+                    else:  
+                        # nghiệm phức  
+                        res.append(complex(re_f, im_f))  
+                return res  
+            else: pass  
+        elif app:  
+            for s in sol:  
+                if s.is_real:   
+                    x_val = str(s)  
+                    stor(x=x_val)  
+                    return x_val  
+        for s in sol:  
+            if s.is_real:   
+                x_val = returning(evaluate_expression(str(s)))  
+                stor(x=x_val)  
+                return x_val   
         return []
-
-    # Chỉ trả nghiệm thực đầu tiên
-
-    if ask:
-        if not app:
-            res = []
-            for s in sol:
-                re, im = s.as_real_imag()
-
-                re_f = float(re.evalf())
-                im_f = float(im.evalf())
-
-                if abs(im_f) < 1e-50:
-                    # nghiệm thực
-                    res.append(returning(re_f))
-                else:
-                    # nghiệm phức
-                    res.append(complex(re_f, im_f))
-            return res
-        else: pass
-    elif app:
-        for s in sol:
-            if s.is_real: 
-                x_val = str(s)
-                stor(x=x_val)
-                return x_val
-    for s in sol:
-        if s.is_real: 
-            x_val = returning(evaluate_expression(str(s)))
-            stor(x=x_val)
-            return x_val 
-    return []
-    #except Exception:
-        #return MATH_ERROR
+    except:
+        try:
+            expr = preprocess_expression(expr)
+    
+            if "=" not in expr:
+                expr += "=0"
+    
+            left, right = expr.split("=")
+            actual_expr = f"({left})-({right})"
+    
+            # ===============================
+            # f(x), f'(x)
+            # ===============================
+            def f(x_val):
+                try:
+                    return float(calc(actual_expr, **vars_val, **{var: x_val}))
+                except Exception:
+                    return None
+    
+            def df(x_val):
+                try:
+                    dexpr = d_dx(actual_expr, var)
+                    return float(calc(dexpr, **vars_val, **{var: x_val}))
+                except Exception:
+                    return None
+    
+            # ===============================
+            # 1. Scan
+            # ===============================
+            brackets = scan_brackets(f)
+    
+            if not brackets:
+                return []
+    
+            if not ask:
+                brackets = brackets[:1]
+    
+            # ===============================
+            # 2. Solve nhanh
+            # ===============================
+            solutions = []
+            for a, b in brackets:
+                sol = solve_fast(f, df, a, b)
+                if sol is not None:
+                    solutions.append(sol)
+    
+            if not solutions:
+                return []
+    
+            # ===============================
+            # 3. Output
+            # ===============================
+            if ask:
+                return [returning(s) for s in solutions]
+            else:
+                sol = returning(solutions[0])
+                stor(**{var: sol})
+                return sol
+    
+        except:
+            return []
 
 # 7. Roots
-def exp(n: int | float | Decimal | Fraction | complex):
+def exp(n: int | float | Decimal | Fraction | sqrt | complex):
     global complex_choice, ANGLE_MODE
     if isinstance(n, complex):
         if not complex_choice:
@@ -1479,27 +1753,18 @@ def Pow(base: int | float | Fraction | Decimal | complex,
     else:
         return pow(base, exp)
 # 8. Differentials + log
-def log(base: float, num: float | None = None):
-    # Trường hợp chỉ truyền 1 tham số -> log(num) = log_base10(num)
-    if num is None:
-        num = base      # lúc này "base" chính là số cần log
-        base = 10       # mặc định logarithm cơ số 10
+def log(*args):
+    if len(args) == 1:
+        base = 10
+        num = args[0]
+    elif len(args) == 2:
+        base, num = args
+    else:
+        raise TypeError("log() takes 1 or 2 arguments")
 
-    # Kiểm tra hợp lệ
-    if base <= 0 or base == 1:
-        raise ValueError("Base must be over 0 and not equal to 1")
-    if num <= 0:
-        raise ValueError("Number needs to be over 0")
-
-    # Tính log
-    try:
-        return returning(math.log(num, base))
-    except Exception:
-        raise ValueError(MATH_ERROR)
+    return returning(math.log(num, base))
 
 def ln(num: float):
-    if num <= 0:
-        raise ValueError("The number must be over 0")
     return (log(math.e, num))
 
 def d_dx(expression: str, val: int | None = None):
@@ -1523,7 +1788,7 @@ def d_dx(expression: str, val: int | None = None):
                 return evaluate_expression(str(res)) 
         except Exception:
             raise ValueError(MATH_ERROR + ". The expression needs fix...")
-def inte(low: float, high: float, expression: str, var: str = "x"):
+def inte(expression: str, low: float, high: float, *, var: str = "x"):
     from sympy import symbols, integrate, sympify
     x = symbols(var)
     #print(expression)
@@ -1535,7 +1800,7 @@ def inte(low: float, high: float, expression: str, var: str = "x"):
         return evaluate_expression(str(res))
 
 # 9. Tổng / Tích liên tục
-def sums(first: int, end: int, expression: str, var: str = "x"):
+def sums(expression: str, first: int, end: int, *, var: str = "x"):
     from sympy import symbols, summation, sympify
     i = symbols(var)
     expr = sympify(preprocess_expression(expression))
@@ -1545,7 +1810,7 @@ def sums(first: int, end: int, expression: str, var: str = "x"):
     else: # if isinstance(res, str):
         return evaluate_expression(str(res))
 
-def muls(first: int, end: int, expression: str, var: str = "x"):
+def muls(expression: str, first: int, end: int, *, var: str = "x"):
     from sympy import symbols, product, sympify
     i = symbols(var)
     expr = sympify(preprocess_expression(expression))
@@ -1562,6 +1827,10 @@ def calc(expr: str, **vars_values):
 
     # Tách các biến từ chuỗi
     symbols = list(sympify(expr).free_symbols)
+    symbols = list(map(str, symbols))
+    if 'e' in symbols:
+        symbols.remove('e')
+    #print(symbols)
     global actual_val_const, A, B, C, D, E, F, x, y, z, M
     if not symbols:
         # Biểu thức không có biến
@@ -1588,57 +1857,10 @@ def calc(expr: str, **vars_values):
 
         # Đảm bảo các hàm lượng giác dùng đúng mode
         # Chuyển các hàm sin, cos, tan sang hàm đã xử lý mode
-        local_dict = {
-        "sin": sin, "cos": cos, "tan": tan,
-        "asin": asin, "acos": acos, "atan": atan,
-        "ln": ln,
-        "sums": sums,
-        "muls": muls,
-        "d_dx": d_dx,
-        "inte": inte,
-        "log": log,
-        "pi": pi,
-        "e": e,
-        "comb": comb,
-        "factorial": factorial,
-        "perm": perm, 
-        "pow": Pow,
-        "Pow": Pow,
-        "abs": abs,
-        #"frac": Fraction,
-        "nth_rt": nth_root,
-        "gcd": gcd,
-        "lcm": lcm,
-        "Ran#": Ran_,
-        "RandInt": Randint,
-        "Int": int,
-        "Rnd": Rnd,
-        "Rec": Rec,
-        "Pol": Pol,
-        "modulo": modulo,
-        "sqrt": sqrt,
-        "exp": exp,
-    }
-        if complex_choice:
-            local_dict.pop("Rec")
-            local_dict.pop("Pol")
-            local_dict.update({
-                "i": 1j,
-                "ImP": ImP,
-                "ReP": ReP,
-                "Arg": Arg,
-                "Conjg": Conjg
-            })
+
         avail_var |= vars_values
         stor(**avail_var)
-        avail_var |= actual_val_const
-        local_dict.update(avail_var)
-        expr_sp = sympify(expr, locals=local_dict)
-        # Nếu expr_sp là số thực (float/int), trả về luôn, nếu không thì evalf
-        if isinstance(expr_sp, (int, float)):
-            return returning(float(expr_sp))
-        val = expr_sp.evalf(subs=vars_values)
-        return returning(float(val))
+        return evaluate_expression(expr)
 
 # Tổ hợp, giai thừa, hoán vị (chập)
 def comb(k: int | float, n: int | float):
@@ -1751,13 +1973,13 @@ res_ = []
 res_.append(str(solve_eq("x**2+B", ask=True, B=1))+"\n")
 stor(x=sqrt(2)); 
 res_.append(str(evaluate_expression("2x+1-3"))+"\n")
-#res_.append(str(Ans) + "\n")
+res_.append(str(Ans) + "\n")
 res_.append(str(calc("2A - 3", A=6))+"\n")
 res_.append(str(returning(sqrt(2)))+"\n")
 res_.append(str(d_dx("x^2 + 2x + 1", 9)) + "\n")
-res_.append(str(inte(0, 4, "x^2 + 4")) + "\n")
-res_.append(str(sums(0, 10, "x**2")) + "\n")
-res_.append(str(muls(1, 10, "x")) + "\n")
+res_.append(str(inte("x^2 + 4", 0, 4)) + "\n")
+res_.append(str(sums("x**2", 0, 10)) + "\n")
+res_.append(str(muls("x", 1, 10)) + "\n")
 BASE_DIR_ = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(BASE_DIR_, "run.txt")
 with open(file_path, "w", encoding="utf-8") as f:
