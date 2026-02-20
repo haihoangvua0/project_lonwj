@@ -9,7 +9,6 @@ from fractions import Fraction
 from decimal import Decimal
 import cmath
 import random
-
 # Symbol
 theta_symbol = "\u03B8"     
 pi_symbol = "\u03C0"        
@@ -213,7 +212,7 @@ class sqrt:
                     else:
                         out *= Pow(k, (v - 1) // 2)
                         ins *= k
-                self.coef = out * 1j
+                self.coef = out * i
                 self.radicand = ins
         elif isinstance(n, complex):
             if not complex_choice: raise ValueError(MATH_ERROR)
@@ -366,11 +365,14 @@ class sqrt:
                     outside, inside = split_in_out(ins)
                     terms += sqrt([(outside*out, inside)])
             return terms
-        elif isinstance(other, (int, float, Fraction, Decimal, complex)):
+        elif isinstance(other, (int, float, Fraction, Decimal, Complex)):
             if isinstance(other, (int, float, Fraction, Decimal)):
                 if other == 1: return self
                 if check_irrational(other): pass
                 else: other = Fraction(*float(other).as_integer_ratio()).limit_denominator()
+            elif isinstance(other, Complex):
+                return NotImplemented
+            else: return NotImplemented
             items = self.items
             new_terms = []
             for i in items:
@@ -470,205 +472,170 @@ class sqrt:
         return not self < other
     def __neg__(self):
         return (-1)*self
-
-class math_set:
-    def __init__(self, *, left: tuple | float | None = None, right: tuple | float | None = None, in_range: list | None = None):
-        self.criteria = None
-        if left is not None \
-           and right is not None \
-           and in_range is None:
-            # Check special cases
-            if ((not left[1] and right[1]) \
-                or (left[1] and not right[1])\
-                or (not left[1] and not right[1])) \
-                and (left[0] >= right[0]):
-                self.criteria = set()
-            elif (left[1] and right[1]) \
-                and (left[0] == right[0]):
-                self.criteria = {left[0]}
-            if (isinstance(left, float) and left == float('-inf')) or (isinstance(left, tuple) and float('-inf') in left):
-                left = (left, False)
-            if (isinstance(right, float) and right == float('inf')) or (isinstance(right, tuple) and float('inf') in right):
-                right = (right, False)
-            self.criteria = [(left, right)]
-        elif left is None \
-           and right is None \
-           and in_range is not None:
-            self.criteria = in_range
+REAL = (int, float, Fraction, Decimal, euler_num, sqrt)
+class Complex:
+    def __init__(self, real: int | float | Fraction | Decimal = 0, 
+                       imag: int | float | Fraction | Decimal = 0):
+        self.re = None
+        self.im = None
+        # real part
+        if isinstance(real, (complex, Complex)):
+            self.re = returning(real.real)
+            self.im = returning(real.imag)
+        elif isinstance(real, REAL):
+            self.re = returning(real)
+        else: raise ValueError(f"Initialization Error for \"{real = }\"")
+        # imaginary part
+        if isinstance(imag, (complex, Complex)): 
+            re = returning(imag.real)
+            im = returning(imag.imag)
+            # A + (a+bi)i = (A - b) + ai
+            if self.re is not None \
+               and self.im is not None:
+                self.re -= im
+                self.im += re
+                # final modify
+        elif isinstance(imag, REAL):
+            imag = returning(imag)
+            self.im = imag
+        else: raise ValueError(f"Initialization Error for \"{imag = }\"")
+    # Class properties and attributes
+    @property
+    def real(self): return self.re
+    @property
+    def imag(self): return self.im
+    def conjugate(self): return Complex(self.real, -self.imag)
+    # Built-in method
+    def __str__(self):
+        display = ""
+        # real part
+        if self.re == 0: pass
+        else: display += str(self.re)
+        # imaginary part
+        if self.im == 0: pass
+        elif self.im == 1: display += ("+" if (display) else "") + "i"
+        elif self.im == -1: display += "-i"
+        elif isinstance(self.im, sqrt):
+            if len(self.im.items) > 1:
+                if self.im > 0:
+                    if display: text = f'+({self.im})'
+                    else: text = f'({self.im})'
+                else:
+                    text = f"-({abs(self.im)})"
+            else:
+                if self.im > 0:
+                    if display: text = f'+{self.im}'
+                    else: text = f'{self.im}'
+                else:
+                    text = f"-{abs(self.im)}"
+            display += (text + "i")
+        elif isinstance(self.im, Fraction):
+            display += (("+" if (self.im > 0 and display) else "") + f"({self.im})") + 'i'
+        else: display += (("+" if (self.im > 0 and display) else "") + str(self.im)) + 'i'
+        # process output
+        if display == "":
+            return "0"
         else:
-            raise ValueError("Cannot initialize the set.")
-         
+            return display
     def __repr__(self):
         return str(self)
-    def __str__(self):
-        def process(l):
-            left, right = l
-            needed = ""
-            # Left
-            if left == float('-inf') or (isinstance(left, tuple) and float('-inf') in left):
-                needed += "(-float('inf');"
-            else:
-                if isinstance(left, (int, float, Fraction, Decimal, str)): raise ValueError("Unknown argument.")
-                num, get = left
-                if get:
-                    needed += f"[{num};"
-                else:
-                    needed += f"({num};"
-            # Right
-            if right == float('inf') or (isinstance(right, tuple) and float('inf') in right):
-                needed += "float('inf'))"
-            else:
-                if isinstance(right, (int, float, Fraction, Decimal, str)): raise ValueError("Unknown argument.")
-                num, get = right
-                if get:
-                    needed += f"{num}]"
-                else:
-                    needed += f"{num})"
-            return needed
-        if isinstance(self.criteria, set): return str(self.criteria)
-        dis_list = []
-        for i in self.criteria:
-            dis_list.append(process((i[0], i[1])))
-        display = "|".join(dis_list)
-        return display
     def __add__(self, other):
-        if not isinstance(other, math_set):
-            return NotImplemented
-
-        if self.criteria == set() or other.criteria == set():
-            return math_set(in_range=[])
-
-        new_ranges = []
-
-        for l1, r1 in self.criteria:
-            for l2, r2 in other.criteria:
-                left_val = l1[0] + l2[0]
-                right_val = r1[0] + r2[0]
-
-                left_closed = l1[1] and l2[1]
-                right_closed = r1[1] and r2[1]
-
-                new_ranges.append(((left_val, left_closed),
-                                (right_val, right_closed)))
-
-        return math_set(in_range=new_ranges)
-    def __sub__(self, other):
-        return NotImplemented
-    def __mul__(self, other):
-        if not isinstance(other, math_set):
-            return NotImplemented
-
-        if self.criteria == set() or other.criteria == set():
-            return math_set(in_range={})
-
-        new_ranges = []
-
-        for l1, r1 in self.criteria:
-            for l2, r2 in other.criteria:
-                a, b = l1[0], r1[0]
-                c, d = l2[0], r2[0]
-
-                values = [
-                    a * c,
-                    a * d,
-                    b * c,
-                    b * d
-				]
-
-                min_val = min(values)
-                max_val = max(values)
-
-                # Biên đóng nếu tồn tại ít nhất một tích đạt min/max với biên đóng
-                def is_closed(val):
-                    for x, x_closed in [l1, r1]:
-                        for y, y_closed in [l2, r2]:
-                            if x * y == val and x_closed and y_closed:
-                                return True
-                    return False
-
-                left_closed = is_closed(min_val)
-                right_closed = is_closed(max_val)
-
-                new_ranges.append(((min_val, left_closed),
-                                    (max_val, right_closed)))
-
-        return math_set(in_range=new_ranges)
-    def __truediv__(self, other):
-        return NotImplemented
-    def __floordiv__(self, other):
+        if isinstance(other, REAL):
+            real = self.real
+            #imaginary = self.imag
+            real += other
+            return Complex(real, self.imag)
+        if isinstance(other, (complex, Complex)):
+            real = self.real + returning(other.real)
+            imaginary = self.imag + returning(other.imag)
+            return Complex(real, imaginary)
         return NotImplemented
     def __radd__(self, other):
-        return NotImplemented
+        return self + other
+    def __sub__(self, other):
+        return self + (-1)*other
     def __rsub__(self, other):
-        return NotImplemented
+        return (-1)*self + other
+    def __mul__(self, other):
+        if isinstance(other, (complex, Complex)):
+            real = self.real*returning(other.real) - self.imag*returning(other.imag)
+            imaginary = self.real*returning(other.imag) + self.imag*returning(other.real)
+            return Complex(real, imaginary)
+        if isinstance(other, REAL):
+            return Complex(returning(self.real * other), returning(self.imag * other))
+        return NotImplemeted
     def __rmul__(self, other):
+        return self * other
+    def __truediv__(self, other):
+        if isinstance(other, REAL):
+            return Complex(returning(self.real / other), returning(self.imag / other))
+        if isinstance(other, (complex, Complex)):
+            numerator = self * other.conjugate()
+            denominator = (other.real)**2 + (other.imag)**2
+            # return to the form z / c, as z is complex and c is real
+            return numerator / denominator
         return NotImplemented
     def __rtruediv__(self, other):
-        return NotImplemented
-    def __rfloordiv__(self, other):
-        return NotImplemented
-    def __contains__(self, other):
-        if isinstance(other, (int, float, Decimal, Fraction)):
-            if self.criteria == set(): return False
-            if len(self.criteria) == 1: return other in self.criteria
-            now = False
-            for left, right in self.criteria:
-                if left == float("-inf") and not right == float('inf'):
-                    if right[1]:
-                        now = (other <= right[0])
-                    else:
-                        now = (other < right[0])
-                elif not left == float("-inf") and right == float('inf'):
-                    if left[1]:
-                        now = (other >= left[0])
-                    else:
-                        now = (other > left[0])
-                elif left == float("-inf") and right == float('inf'): return True
-                else:
-                    if left[1]:
-                        if right[1]:
-                            now = (left[0] <= other <= right[0])
-                        else:
-                            now = (left[0] <= other < right[0])
-                    else:
-                        if right[1]:
-                            now = (left[0] < other <= right[0])
-                        else:
-                            now = (left[0] < other < right[0])
-                if now: return now
-            return now
-        if isinstance(other, math_set):
-            if self.criteria == set() and not other.criteria == set(): return False
-            if not self.criteria == set() and other.criteria == set(): return True
-            def interval_in(a, b):
-                # a, b: ((l_val, l_closed), (r_val, r_closed))
-                (al, acl), (ar, acr) = a
-                (bl, bcl), (br, bcr) = b
-                # Check left
-                if al < bl:
-                    return False
-                if al == bl and acl and not bcl:
-                    return False
-                # Check right
-                if ar > br:
-                    return False
-                if ar == br and acr and not bcr:
-                    return False
-                return True
-            self_sorted = sorted(self.criteria, key=lambda x: [x[0], x[1]])
-            other_sorted = sorted(other.criteria, key=lambda x: [x[0], [1]])
-            for a_interval in other.criteria:
-                ok = False
-                for b_interval in self.criteria:
-                    if interval_in(a_interval, b_interval):
-                        ok = True
-                        break
-                if not ok:
-                    return False
-            return True
-#print(-1 in math_set(in_range=[((0, True), (9, False)), ((12, True), float('inf'))]))
-            
+        numerator = other * self.conjugate()
+        denominator = (self.real)**2 + (self.imag)**2
+        return numerator / denominator
+    def __pow__(self, other):
+    
+        # ----- INTEGER POWER -----
+        if isinstance(other, int):
+            if other == 0:
+                return Complex(1, 0)
+            if other < 0:
+                return Complex(1,0) / (self ** (-other))
+    
+            result = Complex(1, 0)
+            base = self
+            while other:
+                if other & 1:
+                    result *= base
+                base *= base
+                other >>= 1
+            return result
+    
+    
+        # ----- REAL POWER -----
+        if isinstance(other, (int, float, Fraction, Decimal)):
+    
+            r, theta = Pol(self.real, self.imag)
+    
+            new_r = r ** other
+            new_theta = theta * other
+    
+            x, y = Rec(new_r, new_theta)
+            return Complex(x, y)
+    
+    
+        # ----- COMPLEX POWER -----
+        if isinstance(other, (complex, Complex)):
+    
+            a = other.real
+            b = other.imag
+    
+            r, theta = Pol(self.real, self.imag)
+    
+            if r == 0:
+                return Complex(0,0)
 
+            log_r = log(r)
+    
+            exp_real = math.exp(a * log_r - b * theta)
+            new_theta = a * theta + b * log_r
+    
+            x, y = Rec(exp_real, new_theta)
+            return Complex(x, y)
+    
+        return NotImplemented
+    def __rpow__(self, other):
+        if isinstance(other, REAL):
+            return Complex(other, 0) ** self
+        if isinstance(other, complex):
+            return Complex(other.real, other.imag) ** self
+        return NotImplemented
 # put value.
 e = euler_num()
 getcontext().prec = 50
@@ -944,6 +911,14 @@ def is_scientific_notation(n: float) -> float:
         base = base.rstrip("0")
         return float(f"{base}e{exp}")
 
+def abs(n: int | float | Fraction | Decimal | complex | Complex):
+    if isinstance(n, REAL):
+        if isinstance(n, (float, Decimal)):
+            n = float(n)
+        return (-1)*n if n < 0 else n
+    if isninstance(n, (complex, Complex)): return sqrt((n.real)**2 + (n.imag)**2)
+    raise TypeError(f"Not Implemented for {type(n) = }")
+    
 # ---------------------------------------------------------
 # 5. Unified returning()
 # ---------------------------------------------------------
@@ -988,7 +963,7 @@ def returning(n: int | float | Decimal | sqrt | complex,
         # ----------------------
         # 4) Số nguyên
         # ----------------------
-        if abs(n - round(n)) < 1e-12:
+        if abs(n - round(n)) < 1e-8:
             return int(round(n))
     elif isinstance(n, complex):
         if not complex_choice:
@@ -1105,20 +1080,20 @@ def Arg(z: complex | int | float | Fraction | str):
                 _, t = map(returning, z.split(angle))
                 return returning(t)
             else:
-                return evaluate_expression(z)
+                return 0
         else:
             return 0
     else: return 0
 
 def Conjg(z: int | float | Fraction | complex | str):
     if complex_choice:
-        if isinstance(z, complex):
+        if isinstance(z, (complex, Complex)):
             return z.conjugate()
         elif isinstance(z, str):
             if angle in z:
                 r, t = map(returning, z.split(angle))
                 re, im = Rec(r, t)
-                new_cmplx = complex(re, im)
+                new_cmplx = Complex(re, im)
                 return new_cmplx.conjugate()
             else: return evaluate_expression(z)
         else: return returning(z)
@@ -1142,8 +1117,11 @@ def preprocess_expression(expr: str) -> str:
     import re  
 
     #expr = expr.replace("^", "**")  
-    expr = re.sub(r'\s+', '', expr) 
-    #expr = expr.replace("×", "*") 
+    expr = re.sub(r'\s+', '', expr)
+    if expr.count("÷÷") > 0 or expr.count('**') > 0:
+        raise ValueError("Syntax ERROR")
+    expr = expr.replace("÷", "/")
+    #expr = expr.replace("×", "*")
     # -------------------------------  
     # protect expression argument in inte()  
     # inte(a,b,expr)  -> inte(a,b,"expr")  
@@ -1270,15 +1248,24 @@ def preprocess_expression(expr: str) -> str:
     )  
 
     # -------------------------------  
-    # power **  
+    # power ^()
     # -------------------------------  
+    funcs = [  
+        "sqrt", "sin", "cos", "tan", "asin", "acos", "atan",  
+        "log", "ln", "exp", "sums", "muls", "integral",  
+        "nth_rt", "pow", "Pow", "abs", "factorial", "gcd", "lcm",  
+        "modulo"  
+    ]
+    str_of_func = "|".join(funcs)
+    new = names + ["pi", "e", "Ans"] + list(actual_val_const)
+    str_of_var = "|".join(new)
     func_calls = []  
     def protect_func(m):  
         func_calls.append(m.group(0))  
         return f"__FUNC{len(func_calls)-1}__"  
 
     expr = re.sub(  
-        r'[A-Za-z_]+\([^()]*\)',  
+        rf'({str_of_func})+\([^()]*\)',  
         protect_func,  
         expr  
     )  
@@ -1344,8 +1331,6 @@ def preprocess_expression(expr: str) -> str:
         return expr
     # Do func is protected -> ...
     expr = parse_power(expr)
-    for i, f in enumerate(func_calls):  
-        expr = expr.replace(f"__FUNC{i}__", f) 
     #expr = add_close_parentheses(expr) # if needed
     # -------------------------------  
     # protect scientific notation  
@@ -1356,37 +1341,29 @@ def preprocess_expression(expr: str) -> str:
         lambda m: f"__SCI{sci_tokens.append(m.group(0)) or len(sci_tokens)-1}__",  
         expr  
     )  
-
-    funcs = [  
-        "sqrt", "sin", "cos", "tan", "asin", "acos", "atan",  
-        "log", "ln", "exp", "sums", "muls", "integral",  
-        "nth_rt", "pow", "Pow", "abs", "factorial", "gcd", "lcm",  
-        "modulo"  
-    ] + list(actual_val_const)  
-
-    for f in sorted(funcs, key=len, reverse=True):  
-        expr = re.sub(rf'(\d)({f})', r'\1*\2', expr) 
+ 
+    # restore func
+    for i, f in enumerate(func_calls):  
+        expr = expr.replace(f"__FUNC{i}__", f) 
     # -------------------------------  
     # implicit multiplication  
     # -------------------------------   
     expr = re.sub(r'(\d)\(', r'\1*(', expr)  
-    expr = re.sub(r'\)\(', ')*(', expr)  
-    expr = re.sub(r'(\d)([A-Za-z])', r'\1*\2', expr)  
-    #expr = re.sub(r'([A-Za-z])(?=pi)', r'\1*', expr)  
-    new = names + ["pi", "e", "Ans"]
-    for i in sorted(new, key=len, reverse=True):
-        for j in sorted(new, key=len, reverse=True):
-            if (i == "e" and j == "x") or (i == "x" and j == "e"):
-                   continue
-            expr = re.sub(rf"({i})({j})", r"\1*\2", expr)
+    expr = re.sub(r'\)\(', ')*(', expr)
+    expr = re.sub(rf'\)({str_of_var})', r')*\1', expr)  
+    expr = re.sub(r'(\d)([A-Za-z])', r'\1*\2', expr) 
+    expr = re.sub(rf'(\d)({str_of_func})', r'\1*\2', expr) 
+    expr = re.sub(rf'({str_of_var})({str_of_var})', r'\1*\2', expr)  # biến với biến
+    expr = re.sub(rf"({str_of_var})({str_of_func})", r'\1*\2', expr) # biến với hàm
+    expr = re.sub(rf"({str_of_var})(\d)", r"\1*\2", expr)
+    expr = re.sub("e*xp", "exp", expr)
     # -------------------------------  
     # restore scientific notation  
     # -------------------------------  
     for i, val in enumerate(sci_tokens):  
-        expr = expr.replace(f"__SCI{i}__", val)  
-
+        expr = expr.replace(f"__SCI{i}__", val)
     return expr
-
+#print(preprocess_expression("sqrt(2)"))
 def evaluate_expression(expr: str,
                         *,
                         simplify_symbolic=True):
@@ -1436,7 +1413,7 @@ def evaluate_expression(expr: str,
         "e": e,
         "Ran#": Ran_
     } | ({
-        "i": 1j
+        "i": i
     } if complex_choice else {}))
     avail_vars = {k: v for k, v in zip(names, variable)}
     new_ |= avail_vars
@@ -1448,9 +1425,14 @@ def evaluate_expression(expr: str,
     return res
 
 def solve_manually(expr: str, var='x', *, ask: bool = False, **vars_val):
-    pass
+    dict_mapping = {
+        "ln": None,
+        "log": None,
+        "cos": None,
+        "sin": None
+    }
 def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
-    try:
+    #try:
         global A, B, C, D, E, F, x, y, z, M, actual_val_const, Ans  
         from sympy import sympify, Eq, Symbol, solve  
       
@@ -1503,7 +1485,7 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
             FUNC_MAP.pop("Rec")  
             FUNC_MAP.pop("Pol")  
             FUNC_MAP.update({  
-                "i": 1j,  
+                "i": i,  
                 "ImP": ImP,  
                 "ReP": ReP,  
                 "Arg": Arg,  
@@ -1515,7 +1497,7 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
         local_dict.update(actual_val_const)  
         local_dict.update(vars_val)  
         # Inject centralized function map so sympify/eval has access to helpers  
-        #local_dict.update(FUNC_MAP)  
+        local_dict.update(FUNC_MAP)  
         stor(**vars_val)  
         left = sympify(left, locals=local_dict)  
         right = sympify(right, locals=local_dict)  
@@ -1543,7 +1525,7 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
                         res.append(returning(re_f))  
                     else:  
                         # nghiệm phức  
-                        res.append(complex(re_f, im_f))  
+                        res.append(Complex(re_f, im_f))  
                 return res  
             else: pass  
         elif app:  
@@ -1558,67 +1540,8 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
                 stor(x=x_val)  
                 return x_val   
         return []
-    except:
-        try:
-            expr = preprocess_expression(expr)
-    
-            if "=" not in expr:
-                expr += "=0"
-    
-            left, right = expr.split("=")
-            actual_expr = f"({left})-({right})"
-    
-            # ===============================
-            # f(x), f'(x)
-            # ===============================
-            def f(x_val):
-                try:
-                    return float(calc(actual_expr, **vars_val, **{var: x_val}))
-                except Exception:
-                    return None
-    
-            def df(x_val):
-                try:
-                    dexpr = d_dx(actual_expr, var)
-                    return float(calc(dexpr, **vars_val, **{var: x_val}))
-                except Exception:
-                    return None
-    
-            # ===============================
-            # 1. Scan
-            # ===============================
-            brackets = scan_brackets(f)
-    
-            if not brackets:
-                return []
-    
-            if not ask:
-                brackets = brackets[:1]
-    
-            # ===============================
-            # 2. Solve nhanh
-            # ===============================
-            solutions = []
-            for a, b in brackets:
-                sol = solve_fast(f, df, a, b)
-                if sol is not None:
-                    solutions.append(sol)
-    
-            if not solutions:
-                return []
-    
-            # ===============================
-            # 3. Output
-            # ===============================
-            if ask:
-                return [returning(s) for s in solutions]
-            else:
-                sol = returning(solutions[0])
-                stor(**{var: sol})
-                return sol
-    
-        except:
-            return []
+    #except:
+#        pass
 
 # 7. Roots
 def exp(n: int | float | Decimal | Fraction | sqrt | complex):
@@ -1629,7 +1552,7 @@ def exp(n: int | float | Decimal | Fraction | sqrt | complex):
         a = n.real
         b = n.imag
         real_part = math.exp(a)
-        imag_part = returning(math.cos(b)) + returning(math.sin(b)) * 1j
+        imag_part = returning(math.cos(b)) + returning(math.sin(b)) * i
 
         return real_part * imag_part
     elif returning(n) == float("inf"):
@@ -1754,6 +1677,7 @@ def Pow(base: int | float | Fraction | Decimal | complex,
         return pow(base, exp)
 # 8. Differentials + log
 def log(*args):
+
     if len(args) == 1:
         base = 10
         num = args[0]
@@ -1762,10 +1686,86 @@ def log(*args):
     else:
         raise TypeError("log() takes 1 or 2 arguments")
 
-    return returning(math.log(num, base))
+    # ----- COMPLEX -----
+    if isinstance(num, (complex, Complex)):
 
-def ln(num: float):
-    return (log(math.e, num))
+        r, theta = Pol(num.real, num.imag)
+
+        if r == 0:
+            raise ValueError("math domain error")
+
+        ln_r = math.log(float(r))
+        ln_base = math.log(float(base))
+
+        real_part = ln_r / ln_base
+        imag_part = theta / ln_base
+
+        return Complex(returning(real_part),
+                       returning(imag_part))
+
+    # ----- REAL -----
+    return returning(math.log(num, base))
+def ln(num):
+    if not isinstance(num, (complex, Complex)):
+        if num == 0:
+            return float('-inf')
+
+    return log(math.e, num)
+
+def lim(point, expr, *, direction="both",
+        steps=30, base=10,
+        INF=1e4):
+    """
+    direction: "left", "right", "both"
+    """
+
+    def eval_at(x):
+        return calc(expr, **{"x": x})
+    try:
+        return eval_at(point)
+    except:
+        pass
+    def scan(sign):
+        last = None
+        for k in range(1, steps + 1):
+            dx = base ** (-k)
+            x = point + sign * dx
+            try:
+                val = eval_at(x)
+            except:
+                continue
+
+            if abs(val) >= INF:
+                return float("inf") if val > 0 else float("-inf")
+
+            if last is not None:
+                if abs(val) > abs(last) and abs(val) > 1e6:
+                    last = val
+                else:
+                    return val
+            else:
+                last = val
+        return last
+
+    left = right = None
+
+    if direction in ("left", "both"):
+        left = scan(-1)
+    if direction in ("right", "both"):
+        right = scan(+1)
+
+    if left is None and right is None:
+        raise ValueError("Undefined limit")
+
+    if left is None:
+        return right
+    if right is None:
+        return left
+
+    if left == right:
+        return left
+
+    raise ValueError("Two-sided limit does not exist")
 
 def d_dx(expression: str, val: int | None = None):
     from sympy import symbols, diff, sympify
@@ -1968,17 +1968,19 @@ def stor_settings():
 
     with open(file_path, "r", encoding="utf-8") as f:
         dict_of_setting["Table"] = int(f.readline())
+#print(2+3*i)
+i = Complex(0, 1)
 stor_settings()
 res_ = []
-res_.append(str(solve_eq("x**2+B", ask=True, B=1))+"\n")
+res_.append(str(solve_eq("x^(2)+B", ask=True, B=1))+"\n")
 stor(x=sqrt(2)); 
 res_.append(str(evaluate_expression("2x+1-3"))+"\n")
 res_.append(str(Ans) + "\n")
 res_.append(str(calc("2A - 3", A=6))+"\n")
 res_.append(str(returning(sqrt(2)))+"\n")
-res_.append(str(d_dx("x^2 + 2x + 1", 9)) + "\n")
-res_.append(str(inte("x^2 + 4", 0, 4)) + "\n")
-res_.append(str(sums("x**2", 0, 10)) + "\n")
+res_.append(str(d_dx("x^(2) + 2x + 1", 9)) + "\n")
+res_.append(str(inte("x^(2) + 4", 0, 4)) + "\n")
+res_.append(str(sums("x^(2)", 0, 10)) + "\n")
 res_.append(str(muls("x", 1, 10)) + "\n")
 BASE_DIR_ = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(BASE_DIR_, "run.txt")
