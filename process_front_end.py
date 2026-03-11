@@ -636,6 +636,9 @@ class Complex:
         if isinstance(other, complex):
             return Complex(other.real, other.imag) ** self
         return NotImplemented
+    def __format__(self, format_spec):
+        return format(str(self), format_spec)
+
 # put value.
 e = euler_num()
 getcontext().prec = 50
@@ -819,11 +822,7 @@ def sin(x):
     if abs(a - k * pi) <= 1e-12:
         return 0
 
-    beta = (180 * a) / pi
-    if not abs(beta - round(beta)) <= 1e-14:
-        return returning(math.sin(a))
-
-    beta = int(round(beta)) % 360
+    beta = returning((180 * a) / pi)
 
     base = {
         0: 0,
@@ -834,6 +833,7 @@ def sin(x):
         75: Fraction(1,4)*(sqrt(6) + sqrt(2)),
         90: 1
     }
+    #print(beta)
 
     if beta <= 90:
         return base.get(beta, returning(math.sin(a)))
@@ -1111,15 +1111,48 @@ def modulo(a: int, b: int, /, ask: bool = False):
         return res, remain, "mod"
     return res
 
+def insert(index: int, string: str, sub_string: str):
+    """Insert sub_string into BEFORE the index of string"""
+    before = string[:index]#; print(before)
+    after = string[index:]#; print(after)
+    new = before + sub_string + after
+    return new
 # 6. Expression engine
-def preprocess_expression(expr: str) -> str: 
+def preprocess_expression(expr: str, *, form=False) -> str: 
     global names 
     import re  
 
     #expr = expr.replace("^", "**")  
-    expr = re.sub(r'\s+', '', expr)
-    if expr.count("÷÷") > 0 or expr.count('**') > 0:
+    expr = expr.strip(" ")
+    if "÷÷" in expr:
         raise ValueError("Syntax ERROR")
+    elif "**" in expr:
+        if not form: raise ValueError("Syntax ERROR")
+        expr = expr.replace("**", "^")
+        #print(expr)
+        # start to iter
+        i = 0
+        while i < len(expr):
+            if expr[i] == "^":
+                if i < len(expr) - 1 and expr[i+1] == "(":
+                    pass
+                else:
+                    # find the exponent
+                    start = i + 1
+                    for j in range(start, len(expr)):
+                        if expr[j] in "+-*/÷×":
+                            break
+                    stop = j+1 if j < len(expr) - 1 else None
+                    #print(i, j, len(expr))
+                    #print(expr)
+                    expr = insert(start, expr, "(")
+                    if stop == None:
+                        stop = len(expr)
+                    expr = insert(stop, expr, ")")
+                    print(expr)
+                    i += (stop - start + 2)
+                    continue
+            i += 1
     expr = expr.replace("÷", "/")
     #expr = expr.replace("×", "*")
     # -------------------------------  
@@ -1252,7 +1285,7 @@ def preprocess_expression(expr: str) -> str:
     # -------------------------------  
     funcs = [  
         "sqrt", "sin", "cos", "tan", "asin", "acos", "atan",  
-        "log", "ln", "exp", "sums", "muls", "integral",  
+        "log", "ln", "exp", "sums", "muls", "inte",  
         "nth_rt", "pow", "Pow", "abs", "factorial", "gcd", "lcm",  
         "modulo"  
     ]
@@ -1356,7 +1389,9 @@ def preprocess_expression(expr: str) -> str:
     expr = re.sub(rf'({str_of_var})({str_of_var})', r'\1*\2', expr)  # biến với biến
     expr = re.sub(rf"({str_of_var})({str_of_func})", r'\1*\2', expr) # biến với hàm
     expr = re.sub(rf"({str_of_var})(\d)", r"\1*\2", expr)
-    expr = re.sub("e*xp", "exp", expr)
+    expr = expr.replace("e*xp", "exp")
+    expr = expr.replace("int*e", "inte")
+    expr = expr.replace("nt*h_rt", "nth_rt")
     # -------------------------------  
     # restore scientific notation  
     # -------------------------------  
@@ -1366,9 +1401,11 @@ def preprocess_expression(expr: str) -> str:
 #print(preprocess_expression("sqrt(2)"))
 def evaluate_expression(expr: str,
                         *,
-                        simplify_symbolic=True):
+                        simplify_symbolic=True,
+                        from_=False):
     global variable, A, B, C, D, E, F, x, y, z, M, names, Ans, app
-    expr_clean = preprocess_expression(expr)
+    expr_clean = preprocess_expression(expr, form=from_)
+    #print(expr_clean)
     safe = {
         "sin": sin, "cos": cos, "tan": tan,
         "asin": asin, "acos": acos, "atan": atan,
@@ -1627,6 +1664,7 @@ def cbrt(n: int | float | Decimal | Fraction | complex):
     return Pow(n, 1/3)
 
 def nth_root(ex: float | Fraction | Decimal | int, base: float | Fraction | Decimal | int):
+    if ex == 2: return sqrt(ex)
     return Pow(base, 1/ex)
 
 def pow_mod(base: int, exp: int, mod: int):
@@ -1657,13 +1695,14 @@ def Pow(base: int | float | Fraction | Decimal | complex,
         return returning(pow(base, exp))
     elif isinstance(exp, (float, Decimal)):
         frac = Fraction(*float.as_integer_ratio(exp)).limit_denominator()
+        if frac == 0.5: return sqrt(base)
         if base < 0:
             if frac.denominator % 2 == 0:
                 if not complex_choice:
                     raise ValueError(MATH_ERROR)
                 base_ = abs(base)
                 res1 = pow(base_, exp)
-                return res1 * 1j
+                return res1 * i
             res = -pow(-base, exp)
             return returning(res)
         if base == 0:
@@ -1673,6 +1712,7 @@ def Pow(base: int | float | Fraction | Decimal | complex,
         #if base > 0:
         result = float(pow(base, exp))
         return returning(result)
+    elif returning(exp) == 0.5: return sqrt(base)
     else:
         return pow(base, exp)
 # 8. Differentials + log
@@ -1720,7 +1760,7 @@ def lim(point, expr, *, direction="both",
     """
 
     def eval_at(x):
-        return calc(expr, **{"x": x})
+        return calc(expr, **{"x": x}, stor_in=False)
     try:
         return eval_at(point)
     except:
@@ -1785,19 +1825,28 @@ def d_dx(expression: str, val: int | None = None):
             if res.is_real:
                 return returning(res)
             else: # if isinstance(res, str):
-                return evaluate_expression(str(res)) 
-        except Exception:
-            raise ValueError(MATH_ERROR + ". The expression needs fix...")
+                return evaluate_expression(str(res), from_=True) 
+        except Exception as er:
+            raise ValueError("Error message:" + er)
 def inte(expression: str, low: float, high: float, *, var: str = "x"):
     from sympy import symbols, integrate, sympify
+    global actual_val_const
     x = symbols(var)
     #print(expression)
-    expr = sympify(preprocess_expression(expression))
-    res = (integrate(expr, (x, low, high)))
-    if res.is_real:
-        return returning(res)
-    else: # if isinstance(res, str):
-        return evaluate_expression(str(res))
+    expr = sympify(preprocess_expression(expression), )
+    #print(expr)
+    try:
+        res = (integrate(expr, (x, low, high)))
+        #print(res)
+        if res.is_real:
+            return returning(res)
+        else: # if isinstance(res, str):
+            return evaluate_expression(str(res), from_=True)
+    except:
+        res = integrate(expr, x)
+        new_primitive = str(res)
+        print(new_primitive)
+        return calc(new_primitive, stor_in=False, x=high) - calc(new_primitive, stor_in=False, x=low)
 
 # 9. Tổng / Tích liên tục
 def sums(expression: str, first: int, end: int, *, var: str = "x"):
@@ -1805,10 +1854,11 @@ def sums(expression: str, first: int, end: int, *, var: str = "x"):
     i = symbols(var)
     expr = sympify(preprocess_expression(expression))
     res = (summation(expr, (i, first, end)))
+    #print(str(res))
     if res.is_real:
         return returning(res)
     else: # if isinstance(res, str):
-        return evaluate_expression(str(res))
+        return evaluate_expression(str(res), from_=True)
 
 def muls(expression: str, first: int, end: int, *, var: str = "x"):
     from sympy import symbols, product, sympify
@@ -1818,10 +1868,10 @@ def muls(expression: str, first: int, end: int, *, var: str = "x"):
     if res.is_real:
         return returning(res)
     else: # if isinstance(res, str):
-        return evaluate_expression(str(res))
+        return evaluate_expression(str(res), from_=True)
 
 #calc...
-def calc(expr: str, **vars_values):
+def calc(expr: str, stor_in=True, **vars_values):
     from sympy import sympify
     expr = preprocess_expression(expr)
 
@@ -1859,7 +1909,8 @@ def calc(expr: str, **vars_values):
         # Chuyển các hàm sin, cos, tan sang hàm đã xử lý mode
 
         avail_var |= vars_values
-        stor(**avail_var)
+        if stor_in:
+            stor(**avail_var)
         return evaluate_expression(expr)
 
 # Tổ hợp, giai thừa, hoán vị (chập)
@@ -1988,3 +2039,8 @@ with open(file_path, "w", encoding="utf-8") as f:
     f.writelines(res_)
 del res_;
 Ans = 0
+
+if __name__ == "__main__":
+    print(sin(75))
+#    print(evaluate_expression("d_dx(e^(x),2)"))
+#    print(inte("Pow(e, x)", 0, 9))
