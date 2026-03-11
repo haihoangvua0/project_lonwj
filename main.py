@@ -82,7 +82,7 @@ class Calculator_fx:
                 ]
                 self.main_norm = [
                         ["7", "8", "9", "DEL", "AC"],  
-                        ["4", "5", "6", "*", "/"],  
+                        ["4", "5", "6", "*", "÷"],  
                         ["1", "2", "3", "+", "-"],  
                         ["0", ".", "*10^", "Ans", "="]
                 ]
@@ -157,6 +157,8 @@ class Calculator_fx:
                 elif value == "ON":
                         self.inputs.delete(0, tk.END)
                         self.output.delete(0, tk.END)
+                        self.history = []
+                        self.history_index = -1
 
                     # rebuild UI khi đổi mode
                 self.extra_frame.destroy()
@@ -633,6 +635,7 @@ class Calculator_fx:
         def equal_handle(self):
                 self.output.delete(0, tk.END)
                 if self.env_state == "Calculate":
+                        expr = self.inputs.get()
                         if self.eval_state == "eval":
                                 try:
                                         expr = self.inputs.get()
@@ -677,9 +680,12 @@ class Calculator_fx:
                                         self.regulation = self.fact_reg = ""
                                         self.output.delete(0, tk.END)
                                         self.output.insert(0, ex)
+                                        print(ex)
                                         self.finish_eval = True
                                         self.current = expr
                         elif self.eval_state == "solve_mode_calc":
+                                with open("new_run.txt", "a") as f:
+                                        print(f'{expr} -> {pfe.preprocess_expression(expr)}\n', end='', file=f)
                                 if self.solve_index < len(self.solve_vars):
                                         var, val = self.inputs.get().split("=")
                                         if val == "": pass
@@ -696,7 +702,9 @@ class Calculator_fx:
                                         self.current = self.solve_expr
                                         self.eval_state = "solve_mode"
                         elif self.eval_state == "calc_ready":
-                                #try:
+                                with open("new_run.txt", "a") as f:
+                                        print(f'{expr} -> {pfe.preprocess_expression(expr)}\n', end='', file=f)
+                                try:
                                         if self.calc_index < len(self.calc_vars):
                                                 calcs = self.inputs.get()
                                                 if calcs[1:] == "=": pass
@@ -777,13 +785,13 @@ class Calculator_fx:
                                                         self.history_index = -1
                                                         self.current = self.calc_expr
                                                 self.eval_state = "calc_finish"
-                                #except Exception as ex:
-#                                        self.eval_state = "eval"
-#                                        self.regulation = self.fact_reg = ""
-#                                        self.output.delete(0, tk.END)
-#                                        self.output.insert(0, ex)
-#                                        self.finish_eval = True
-#                                        self.current = self.calc_expr
+                                except Exception as ex:
+                                        self.eval_state = "eval"
+                                        self.regulation = self.fact_reg = ""
+                                        self.output.delete(0, tk.END)
+                                        self.output.insert(0, ex)
+                                        self.finish_eval = True
+                                        self.current = self.calc_expr
                         elif self.eval_state == "calc_finish":
                                 if self.finish_eval:
                                         self.finish_eval = False
@@ -798,8 +806,10 @@ class Calculator_fx:
                 """Cho bảng số"""
                 if value == "AC":
                         self.finish_eval = False
+                        self.eval_state = "eval"
                         self.inputs.delete(0, tk.END)
                         self.output.delete(0, tk.END)
+                        self.history_index = -1
                 elif value == "DEL":
                         self.finish_eval = False
                         text = self.inputs.get()
