@@ -2,13 +2,11 @@
 
 # Module needed for all
 from functools import cache
-import math
+import math, cmath, random, os
 from decimal import Decimal, getcontext
-import os
 from fractions import Fraction
 from decimal import Decimal
-import cmath
-import random
+getcontext().prec = 50
 # Symbol
 theta_symbol = "\u03B8"     
 pi_symbol = "\u03C0"        
@@ -25,9 +23,10 @@ Ran_ = random.random()
 Rnd = round
 
 MATH_ERROR = "MATH ERROR"
-pi = math.pi
 gcd = math.gcd
 lcm = math.lcm
+
+# 1. Numeric primitives
 
 # Hardware object class
 class euler_num:
@@ -105,7 +104,89 @@ class euler_num:
 
     def __ge__(self, other):
         return not self < other
+
+class Pi:
+    def __init__(self, coef = 1, out = 0) -> None:
+        self.val = math.pi
+        self.coef = coef
+        self.add = out
+    @property
+    def value(self): return self.val
+    def __str__(self) -> str:
+        display = ""
+        if self.coef == 1:
+            display += f"{pi_symbol}"
+        elif self.coef == -1:
+            display += f"-{pi_symbol}"
+        else:
+            if self.coef:
+                display += f"{self.coef}{pi_symbol}"
+            else: return "0"
+        
+        if self.add > 0:
+            return "(" + display + f"+{self.add})"
+        elif self.add < 0:
+            return "(" + display + f"{self.add})"
+        else:
+            return display if display else "0"
+    def __repr__(self) -> str:
+        return self.__str__()
+    def __add__(self, other):
+        if isinstance(other, Pi):
+            return Pi(self.coef + other.coef, self.add + other.add)
+        return Pi(self.coef, self.add + other)
+    def __radd__(self, other):
+        return self + other
+    def __sub__(self, other):
+        return self - other
+    def __rsub__(self, other):
+        return -self + other
+    def __mul__(self, other):
+        if isinstance(other, REAL):
+            return Pi(self.coef * other, self.add * other)
+        if isinstance(other, (complex, Complex)):
+            return Complex(other.real * self, other.imag * self)
+    def __rmul__(self, other):
+        return self * other
+    def __truediv__(self, other):
+        if isinstance(other, Pi): return self.value / other.value
+        return Pi(self.coef / other, self.add / other)
+    def __rtruediv__(self, other):
+        return other / self.value
+    def __pow__(self, other):
+        if other == 0:
+            return 1
+        if other == 1:
+            return self
+        if other not in {0, 1}:
+            return self.value ** other
+    def __rpow__(self, other):
+        return other ** self.value
+    def __neg__(self):
+        return (-1) * self
+    def __abs__(self):
+        return ((-1) if self < 0 else 1) * self
+    def __eq__(self, value: object) -> bool:
+        return self.val == value
+    def __ne__(self, value: object) -> bool:
+        return not self == value
+    def __lt__(self, other) -> bool:
+        return self.value < other
+    def __le__(self, other) -> bool:
+        return self.value <= other
+    def __gt__(self, other) -> bool:
+        return self.value > other
+    def __ge__(self, other) -> bool:
+        return self.value >= other
+    def __format__(self, format_spec: str) -> str:
+        return format(self.value, format_spec)
+    
+
+pi = Pi()
+
+# 2. Complex mode state
 complex_choice = False
+
 def stor_cmplx(choice: int = 0):
     global complex_choice
 
@@ -120,6 +201,7 @@ def stor_cmplx(choice: int = 0):
         f.write(str(choice))
 stor_cmplx(0)
 
+# 3. Square-root helpers
 @cache
 def split_in_out(n: int):
     out = 1
@@ -133,9 +215,10 @@ def split_in_out(n: int):
             out *= Pow(k, (v - 1) // 2)
             ins *= k
     return out, ins
+
+# 4. Square-root and complex types
 class sqrt:
     def __init__(self, n: int | float | list | Fraction | Decimal | complex):
-        #self.original = n
         self.val = None
 
         # mặc định
@@ -472,6 +555,8 @@ class sqrt:
         return not self < other
     def __neg__(self):
         return (-1)*self
+
+# 5. Runtime values
 REAL = (int, float, Fraction, Decimal, euler_num, sqrt)
 class Complex:
     def __init__(self, real: int | float | Fraction | Decimal = 0, 
@@ -482,7 +567,7 @@ class Complex:
         if isinstance(real, (complex, Complex)):
             self.re = returning(real.real)
             self.im = returning(real.imag)
-        elif isinstance(real, REAL):
+        elif isinstance(real, REAL + (Pi,)):
             self.re = returning(real)
         else: raise ValueError(f"Initialization Error for \"{real = }\"")
         # imaginary part
@@ -529,8 +614,7 @@ class Complex:
                 else:
                     text = f"-{abs(self.im)}"
             display += (text + "i")
-        elif isinstance(self.im, Fraction):
-            display += (("+" if (self.im > 0 and display) else "") + f"({self.im})") + 'i'
+        elif isinstance(self.im, Fraction): display += (("+" if (self.im > 0 and display) else "") + f"({self.im})") + 'i'
         else: display += (("+" if (self.im > 0 and display) else "") + str(self.im)) + 'i'
         # process output
         if display == "":
@@ -542,7 +626,6 @@ class Complex:
     def __add__(self, other):
         if isinstance(other, REAL):
             real = self.real
-            #imaginary = self.imag
             real += other
             return Complex(real, self.imag)
         if isinstance(other, (complex, Complex)):
@@ -563,7 +646,7 @@ class Complex:
             return Complex(real, imaginary)
         if isinstance(other, REAL):
             return Complex(returning(self.real * other), returning(self.imag * other))
-        return NotImplemeted
+        return NotImplemented
     def __rmul__(self, other):
         return self * other
     def __truediv__(self, other):
@@ -639,9 +722,8 @@ class Complex:
     def __format__(self, format_spec):
         return format(str(self), format_spec)
 
-# put value.
+# 6. Constants and persisted state
 e = euler_num()
-getcontext().prec = 50
 
 app = False
 def app_open(choice: int = 0):
@@ -706,7 +788,7 @@ def open_ans():
         Ans = f.readlines()[-1]
         Ans = evaluate_expression(Ans)
 
-# 1. Constants
+# 7. Constants and angle mode
 actual_val_const = {
     # =========================
     # 1. Universal constants
@@ -779,7 +861,7 @@ actual_val_const = {
     # =========================
     "t": 273.15                  # Celsius -> Kelvin offset
 }
-# 2. Angle mode (global)
+# 8. Angle mode and trig
 ANGLE_MODE = "DEG"
 
 def set_angle_mode(mode: str):
@@ -807,6 +889,7 @@ def _to_radian_if_needed(x: float):
         return x * math.pi / 200
     return x
 
+# 9. Shared math helpers
 def convert_deg(x: int | float | Fraction | Decimal):
     if ANGLE_MODE == "DEG":
         return returning(math.degrees(x))
@@ -827,13 +910,13 @@ def sin(x):
     base = {
         0: 0,
         15: Fraction(1,4)*(sqrt(6) - sqrt(2)),
+        18: Fraction(1,4)*(sqrt(5) - 1),
         30: Fraction(1,2),
         45: Fraction(1,2)*sqrt(2),
         60: Fraction(1,2)*sqrt(3),
         75: Fraction(1,4)*(sqrt(6) + sqrt(2)),
         90: 1
     }
-    #print(beta)
 
     if beta <= 90:
         return base.get(beta, returning(math.sin(a)))
@@ -891,120 +974,135 @@ def acosh(x: float):
 def atanh(x: float):
     v = math.atanh(x)
     return returning(v)
-# 4. Core helpers
+# 10. Core helpers
 
 # ---------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------
 
-def is_scientific_notation(n: float) -> float:
-    """Handle numbers like 1e-7 to avoid float weirdness."""
-    s = f"{n}"
-    if "e" not in s:
-        return n
-    s = f"{n:.12e}"
-    base, exp = s.split("e")
-    base_f = float(base)
-    if abs(base_f - round(base_f)) < 1e-15:
-        return float(f"{int(round(base_f))}e{exp}")
-    else:
-        base = base.rstrip("0")
-        return float(f"{base}e{exp}")
+class scientific_number(float):
+    def __new__(cls, value: float):
+        value = float(value)
+        obj = float.__new__(cls, value)
+        if value == 0 or math.isinf(value) or math.isnan(value):
+            obj.a = value
+            obj.k = 0
+            return obj
+
+        formatted = f"{value:.12e}"
+        base_text, exp_text = formatted.split("e")
+        base_value = float(base_text)
+        mantissa = round(base_value, 9)
+        if abs(mantissa - round(mantissa)) < 1e-12:
+            obj.a = int(round(mantissa))
+        else:
+            obj.a = float(f"{mantissa:.9f}".rstrip("0").rstrip("."))
+        obj.k = int(exp_text)
+        return obj
+
+    def _mantissa_text(self) -> str:
+        if isinstance(self.a, int):
+            return str(self.a)
+
+        mantissa = float(self.a)
+        if abs(mantissa - round(mantissa)) < 1e-12:
+            return str(int(round(mantissa)))
+
+        return f"{mantissa:.9f}".rstrip("0").rstrip(".")
+
+    def __str__(self):
+        if self.a == 0:
+            return "0"
+        if self.k == 0:
+            return self._mantissa_text()
+        return f"{self._mantissa_text()}*10^({self.k})"
+
+    def __repr__(self):
+        return str(self)
+
+    def __format__(self, format_spec):
+        return format(str(self), format_spec)
 
 def abs(n: int | float | Fraction | Decimal | complex | Complex):
-    if isinstance(n, REAL):
+    if isinstance(n, REAL + (Pi,)):
         if isinstance(n, (float, Decimal)):
             n = float(n)
         return (-1)*n if n < 0 else n
-    if isninstance(n, (complex, Complex)): return sqrt((n.real)**2 + (n.imag)**2)
+    if isinstance(n, (complex, Complex)): return sqrt((n.real)**2 + (n.imag)**2)
     raise TypeError(f"Not Implemented for {type(n) = }")
     
 # ---------------------------------------------------------
-# 5. Unified returning()
+# 11. Unified returning
 # ---------------------------------------------------------
 
-def returning(n: int | float | Decimal | sqrt | complex,
-              choice: str = "S",
-              /):
-              #app: bool = False):
-    """
-    Trả về số đã rút gọn.
-    - choice="S": ưu tiên dạng Fraction.
-    """
-    global complex_choice
-    # ----------------------
-    # 0) Decimal -> float
-    # ----------------------
-    if isinstance(n, Decimal):
-        n = float(n)
+class returning:
+    """Normalize numeric results while preserving the original call style."""
 
-    # ----------------------
-    # 1) NaN / Inf
-    # ----------------------
-    if isinstance(n, float) and (math.isnan(n) or math.isinf(n)):
-        return float("inf")
+    def __new__(cls, n: int | float | Decimal | sqrt | complex | Pi,
+                choice: str = "S",
+                /):
+        global complex_choice
 
-    elif isinstance(n, (int, float)):
-        # ----------------------
-        # 3) Số cực nhỏ
-        # ----------------------
-        if abs(n) < 1e-100:
-            return 0
-        # ----------------------
-        # 2) Scientific
-        # ----------------------
-        n = float(n)
-        if n >= 1e100: return float("inf")
-        elif n <= -1e100: return float("-inf")
-        elif "e" in str(n):
-            new_n = is_scientific_notation(n)
-            return new_n
+        if isinstance(n, Decimal):
+            n = float(n)
 
-        # ----------------------
-        # 4) Số nguyên
-        # ----------------------
-        if abs(n - round(n)) < 1e-8:
-            return int(round(n))
-    elif isinstance(n, complex):
-        if not complex_choice:
-            raise ValueError(MATH_ERROR)
-        return n
-    elif isinstance(n, sqrt):
-        if choice == "D":
-            return n.value
-        elif choice == "S":
+        if isinstance(n, float) and (math.isnan(n) or math.isinf(n)):
+            return float("inf")
+
+        if isinstance(n, (int, float)):
+            if abs(n) < 1e-100:
+                return 0
+
+            n = float(n)
+            if n != 0 and (abs(n) <= 1e-10 or abs(n) >= 1e10):
+                return scientific_number(n)
+
+            if abs(n - round(n)) < 1e-8:
+                return int(round(n))
+
+        elif isinstance(n, complex):
+            if not complex_choice:
+                raise ValueError(MATH_ERROR)
             return n
-    elif isinstance(n, euler_num):
-        return n.value
-    # ----------------------
-    # 6) Thử phân tích dạng a*sqrt(b)
-    # ----------------------
-    if check_irrational(n): 
-        new_n = f"{n:.12f}".rstrip("0").rstrip(".")            
-        actual1 = float(new_n)
-        if abs(actual1 - round(actual1)) < 1e-20:
-            return int(round(actual1))
-        return actual1
-    # ----------------------
-    # 5) Dạng hữu tỉ nếu choice="S"
-    # ----------------------
-    if choice.upper() == "S":
-        frac = Fraction(*float(n).as_integer_ratio()).limit_denominator()
-        if abs(float(frac) - n) < 1e-15:
-            # nếu nguyên
-            if frac.denominator == 1:
-                return frac.numerator
-            return frac
+        elif isinstance(n, sqrt):
+            if choice == "D":
+                return n.value
+            if choice == "S":
+                return n
+        elif isinstance(n, euler_num):
+            return n.value
+        elif isinstance(n, Pi):
+            return n if choice.upper() == "S" else n.value
 
-    # ----------------------
-    # 7) Fallback: trả số float đẹp -> như comp_returning
-    # ----------------------
-    s = f"{n:.12f}".rstrip("0").rstrip(".")
-    actual = float(s)
-    if abs(actual - round(actual)) < 1e-12:
-        return int(round(actual))
+        if check_irrational(n):
+            new_n = f"{n:.12f}".rstrip("0").rstrip(".")
+            actual1 = float(new_n)
+            if abs(actual1 - round(actual1)) < 1e-20:
+                return int(round(actual1))
+            if actual1 != 0 and (abs(actual1) <= 1e-10 or abs(actual1) >= 1e10):
+                return scientific_number(actual1)
+            return actual1
+        if isinstance(n, scientific_number):
+            return n
 
-    return actual
+        if choice.upper() == "S":
+            
+            frac = Fraction(*float(n).as_integer_ratio()).limit_denominator()
+            if abs(float(frac) - n) < 1e-15:
+                if frac.denominator == 1:
+                    return frac.numerator
+                return frac
+            
+
+        s = f"{n:.12f}".rstrip("0").rstrip(".")
+        actual = float(s)
+        if abs(actual - round(actual)) < 1e-12:
+            return int(round(actual))
+
+        if actual != 0 and (abs(actual) <= 1e-10 or abs(actual) >= 1e10):
+            return scientific_number(actual)
+
+        return actual
 
 def check_irrational(n: float) -> bool:
     try:
@@ -1015,9 +1113,8 @@ def check_irrational(n: float) -> bool:
         return True
 
 # =========================
-# Chia lấy dư và hệ toạ độ Đề-các
+# Polar / rectangular helpers
 def Pol(x: int | float | Fraction | Decimal, y: int | Fraction | float | Decimal, ask: bool = False):
-    import math
     r = returning(math.hypot(x, y))
     theta = returning(convert_deg(math.atan2(y, x)))
     if ask:
@@ -1027,7 +1124,6 @@ def Pol(x: int | float | Fraction | Decimal, y: int | Fraction | float | Decimal
     return r
 
 def Rec(r: int | float | Fraction | Decimal, theta: int | float | Fraction | Decimal, ask: bool = False):
-    import math
     theta = _to_radian_if_needed(theta)
     x = returning(r * math.cos(theta))
     y = returning(r * math.sin(theta))
@@ -1038,7 +1134,7 @@ def Rec(r: int | float | Fraction | Decimal, theta: int | float | Fraction | Dec
     return returning(x)
 
 # =========================
-# Complex process
+# Complex process helpers
 # =========================
 
 # Real part:
@@ -1085,18 +1181,12 @@ def Arg(z: complex | int | float | Fraction | str):
             return 0
     else: return 0
 
-def Conjg(z: int | float | Fraction | complex | str):
+def Conjg(z: int | float | Fraction | complex):
     if complex_choice:
         if isinstance(z, (complex, Complex)):
             return z.conjugate()
-        elif isinstance(z, str):
-            if angle in z:
-                r, t = map(returning, z.split(angle))
-                re, im = Rec(r, t)
-                new_cmplx = Complex(re, im)
-                return new_cmplx.conjugate()
-            else: return evaluate_expression(z)
-        else: return returning(z)
+        else:
+            raise TypeError(MATH_ERROR)
     else:
         raise ValueError(MATH_ERROR)
 
@@ -1117,7 +1207,7 @@ def insert(index: int, string: str, sub_string: str):
     after = string[index:]#; print(after)
     new = before + sub_string + after
     return new
-# 6. Expression engine
+# 12. Expression engine
 def preprocess_expression(expr: str, *, form=False) -> str: 
     global names 
     import re  
@@ -1290,7 +1380,7 @@ def preprocess_expression(expr: str, *, form=False) -> str:
         "modulo"  
     ]
     str_of_func = "|".join(funcs)
-    new = names + ["pi", "e", "Ans"] + list(actual_val_const)
+    new = names + [pi_symbol, "e", "Ans", "MatA", "MatB", "MatC", "MatD"] + list(actual_val_const)
     str_of_var = "|".join(new)
     func_calls = []  
     def protect_func(m):  
@@ -1362,18 +1452,18 @@ def preprocess_expression(expr: str, *, form=False) -> str:
             )
 
         return expr
-    # Do func is protected -> ...
+    # As func is protected -> ...
     expr = parse_power(expr)
     #expr = add_close_parentheses(expr) # if needed
     # -------------------------------  
     # protect scientific notation  
     # -------------------------------  
-    sci_pattern = re.compile(r'\d+(?:\.\d+)?e[+-]?\d+')  
-    sci_tokens = []  
-    expr = sci_pattern.sub(  
-        lambda m: f"__SCI{sci_tokens.append(m.group(0)) or len(sci_tokens)-1}__",  
-        expr  
-    )  
+    #sci_pattern = re.compile(r'\d+(?:\.\d+)?e[+-]?\d+')  
+    #sci_tokens = []  
+    #expr = sci_pattern.sub(  
+    #    lambda m: f"__SCI{sci_tokens.append(m.group(0)) or len(sci_tokens)-1}__",  
+    #    expr  
+    #)  
  
     # restore func
     for i, f in enumerate(func_calls):  
@@ -1384,21 +1474,22 @@ def preprocess_expression(expr: str, *, form=False) -> str:
     expr = re.sub(r'(\d)\(', r'\1*(', expr)  
     expr = re.sub(r'\)\(', ')*(', expr)
     expr = re.sub(rf'\)({str_of_var})', r')*\1', expr)  
-    expr = re.sub(r'(\d)([A-Za-z])', r'\1*\2', expr) 
+    #expr = re.sub(r'(\d)([A-Za-z])', r'\1*\2', expr) 
     expr = re.sub(rf'(\d)({str_of_func})', r'\1*\2', expr) 
     expr = re.sub(rf'({str_of_var})({str_of_var})', r'\1*\2', expr)  # biến với biến
     expr = re.sub(rf"({str_of_var})({str_of_func})", r'\1*\2', expr) # biến với hàm
     expr = re.sub(rf"({str_of_var})(\d)", r"\1*\2", expr)
-    expr = expr.replace("e*xp", "exp")
+    expr = re.sub(rf"(\d)({str_of_var}|VecA|VecB|VecC|VecD)", r"\1*\2", expr)
+    #expr = expr.replace("e*xp", "exp")
     expr = expr.replace("int*e", "inte")
     expr = expr.replace("nt*h_rt", "nth_rt")
     # -------------------------------  
     # restore scientific notation  
     # -------------------------------  
-    for i, val in enumerate(sci_tokens):  
-        expr = expr.replace(f"__SCI{i}__", val)
+    #for i, val in enumerate(sci_tokens):  
+    #    expr = expr.replace(f"__SCI{i}__", val)
     return expr
-#print(preprocess_expression("sqrt(2)"))
+
 def evaluate_expression(expr: str,
                         *,
                         simplify_symbolic=True,
@@ -1433,7 +1524,8 @@ def evaluate_expression(expr: str,
         "modulo": modulo,
         "sqrt": sqrt,
         "exp": exp,
-        "inf": float("inf")
+        "inf": float("inf"),
+        pi_symbol: pi
     }
     if complex_choice:
         safe.pop("Rec")
@@ -1461,13 +1553,6 @@ def evaluate_expression(expr: str,
     Ans = res
     return res
 
-def solve_manually(expr: str, var='x', *, ask: bool = False, **vars_val):
-    dict_mapping = {
-        "ln": None,
-        "log": None,
-        "cos": None,
-        "sin": None
-    }
 def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
     #try:
         global A, B, C, D, E, F, x, y, z, M, actual_val_const, Ans  
@@ -1580,7 +1665,7 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
     #except:
 #        pass
 
-# 7. Roots
+# 13. Roots and powers
 def exp(n: int | float | Decimal | Fraction | sqrt | complex):
     global complex_choice, ANGLE_MODE
     if isinstance(n, complex):
@@ -1680,6 +1765,26 @@ def pow_mod(base: int, exp: int, mod: int):
     return result
 
 
+# 14. Combinatorics
+def comb(k: int | float, n: int | float):
+    try:
+        return math.comb(n, k)
+    except:
+        raise ValueError(MATH_ERROR)
+
+def perm(k: int | float, n: int | float | None = None):
+    try:
+        return math.perm(n, k)
+    except:
+        raise ValueError(MATH_ERROR)
+
+def factorial(n: int | float):
+    try:
+        return math.factorial(n)
+    except:
+        raise ValueError(MATH_ERROR)
+
+
 def Pow(base: int | float | Fraction | Decimal | complex,
         exp: int | float | Fraction | Decimal | complex,
         mod: int | float | Fraction | Decimal | complex | None = None):
@@ -1715,7 +1820,8 @@ def Pow(base: int | float | Fraction | Decimal | complex,
     elif returning(exp) == 0.5: return sqrt(base)
     else:
         return pow(base, exp)
-# 8. Differentials + log
+
+# 15. Differentials + log
 def log(*args):
 
     if len(args) == 1:
@@ -1848,7 +1954,7 @@ def inte(expression: str, low: float, high: float, *, var: str = "x"):
         print(new_primitive)
         return calc(new_primitive, stor_in=False, x=high) - calc(new_primitive, stor_in=False, x=low)
 
-# 9. Tổng / Tích liên tục
+# 16. Series / product helpers
 def sums(expression: str, first: int, end: int, *, var: str = "x"):
     from sympy import symbols, summation, sympify
     i = symbols(var)
@@ -1870,7 +1976,7 @@ def muls(expression: str, first: int, end: int, *, var: str = "x"):
     else: # if isinstance(res, str):
         return evaluate_expression(str(res), from_=True)
 
-#calc...
+# 17. Expression calculation
 def calc(expr: str, stor_in=True, **vars_values):
     from sympy import sympify
     expr = preprocess_expression(expr)
@@ -1881,7 +1987,7 @@ def calc(expr: str, stor_in=True, **vars_values):
     if 'e' in symbols:
         symbols.remove('e')
     #print(symbols)
-    global actual_val_const, A, B, C, D, E, F, x, y, z, M
+    global actual_val_const, A, B, C, D, E, F, x, y, z, M, complex_choice
     if not symbols:
         # Biểu thức không có biến
         # Hỗ trợ các hàm toán học và biến đặc biệt như sqrt, sin, cos, pi, e
@@ -1911,28 +2017,68 @@ def calc(expr: str, stor_in=True, **vars_values):
         avail_var |= vars_values
         if stor_in:
             stor(**avail_var)
-        return evaluate_expression(expr)
+            return evaluate_expression(expr)
+        safe = {
+            "sin": sin, "cos": cos, "tan": tan,
+            "asin": asin, "acos": acos, "atan": atan,
+            "ln": ln,
+            "sums": sums,
+            "muls": muls,
+            "d_dx": d_dx,
+            "inte": inte,
+            "log": log,
+            "comb": comb,
+            "factorial": factorial,
+            "perm": perm, 
+            "pow": Pow,
+            "Pow": Pow,
+            "abs": abs,
+            #"frac": Fraction,
+            "nth_rt": nth_root,
+            "gcd": gcd,
+            "lcm": lcm,
+            "RandInt": Randint,
+            "Int": int,
+            "Rnd": Rnd,
+            "Rec": Rec,
+            "Pol": Pol,
+            "modulo": modulo,
+            "sqrt": sqrt,
+            "exp": exp,
+            "inf": float("inf")
+        }
+        if complex_choice:
+            safe.pop("Rec")
+            safe.pop("Pol")
+            safe.update({
+                "ImP": ImP,
+                "ReP": ReP,
+                "Arg": Arg,
+                "Conjg": Conjg
+            })
+        new_ = {"Ans": Ans} | actual_val_const
+        safe.update({
+            "pi": pi,
+            "e": e,
+            "Ran#": Ran_
+        } | ({
+            "i": i
+        } if complex_choice else {}))
+        new_ |= avail_var
+        safe |= new_
+        res = eval(expr, {"__builtins__": {}}, safe)
+        if isinstance(res, (tuple, list, dict, str, set, range)): return res
+        res = returning(res)
+        Ans = res
+        return res
 
-# Tổ hợp, giai thừa, hoán vị (chập)
-def comb(k: int | float, n: int | float):
-    try:
-        return math.comb(n, k)
-    except:
-        raise ValueError(MATH_ERROR)
+# 18. Runtime state and persistence
+app = False
+variable = [0 for _ in range(10)]
+A, B, C, D, E, F, x, y, z, M = variable
+names = ["A", "B", "C", "D", "E", "F", "x", "y", "z", "M"]
+Ans = 0
 
-def perm(k: int | float, n: int | float | None = None):
-    try:
-        return math.perm(n, k)
-    except:
-        raise ValueError(MATH_ERROR)
-
-def factorial(n: int | float):
-    try:
-        return math.factorial(n)
-    except:
-        raise ValueError(MATH_ERROR)
-
-# Update số khi khởi đầu.
 def rcl():
     global variable
 
@@ -1945,14 +2091,15 @@ def rcl():
     with open(file_path, "r", encoding="utf-8") as f:
         variable = list(map(returning, map(evaluate_expression, f.read().splitlines())))
 rcl()
-# lst_of_cmd = ["[solve]", '[calc]', "[settings]"]
+
+# 19. Settings store/load
 dict_of_setting = {
     "Angle unit": ANGLE_MODE,
     "Statistics": False,
     "Equation/ Function": False, 
     "Table": 1
 }
-# lst_of_stop = ["stop", "off", "exit", "quit"]
+
 def stat_setting(choice: int = int(dict_of_setting["Statistics"])):
     global dict_of_setting
     dict_of_setting["Statistics"] = (choice == True)
@@ -1992,6 +2139,7 @@ def table_settings(choice: int = dict_of_setting["Table"]):
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(f"{choice}")
 table_settings(1)
+
 def stor_settings():
     global ANGLE_MODE, dict_of_setting
 
@@ -2019,7 +2167,8 @@ def stor_settings():
 
     with open(file_path, "r", encoding="utf-8") as f:
         dict_of_setting["Table"] = int(f.readline())
-#print(2+3*i)
+
+# 20. Self-test / smoke test
 i = Complex(0, 1)
 stor_settings()
 res_ = []
@@ -2042,5 +2191,3 @@ Ans = 0
 
 if __name__ == "__main__":
     print(sin(75))
-#    print(evaluate_expression("d_dx(e^(x),2)"))
-#    print(inte("Pow(e, x)", 0, 9))
