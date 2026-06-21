@@ -1,3 +1,4 @@
+"""File-App 1: Calculator Casio FX-580 mode \"Calculate\""""
 import tkinter as tk  
 import process_front_end as pfe
 import process_complex as pc
@@ -22,12 +23,12 @@ SMART_TOKENS = [
 ] + pfe.names + list(pfe.actual_val_const)
 #print(SMART_TOKENS, sep="\n")
 
-ENV_STATES = [
-        "Choose Mode", "Calculate", "Complex", 
-        "Base-N", "Matrix", "Vector", "Statistics",
-        "Distribution", "Table", "Equations/Func",
-        "Inequality", "Verify", "Ratio"
-]
+#ENV_STATES = [
+#        "Choose Mode", "Calculate", "Complex", 
+#        "Base-N", "Matrix", "Vector", "Statistics",
+#        "Distribution", "Table", "Equations/Func",
+#        "Inequality", "Verify", "Ratio"
+#]
 def patch_entry_cursor(entry: tk.Entry):
         original_icursor = entry.icursor
     
@@ -90,7 +91,7 @@ class Calculator_fx:
                         ["CONST", "CONV", "RESET", "INS", "OFF"],
                         ["", "", "", "nPr", "nCr"],
                         ["", "", "", "Pol", "Rec"],
-                        ["Rnd", "Ran#", "pi", "%", ""]
+                        ["Rnd", "Ran#", pfe.pi_symbol, "%", ""]
                 ]
                 self.main_alpha = [
                         ["", "", "", "", ""],
@@ -637,7 +638,7 @@ class Calculator_fx:
                 if self.env_state == "Calculate":
                         expr = self.inputs.get()
                         if self.eval_state == "eval":
-                                try:
+                                #try:
                                         expr = self.inputs.get()
                                         if "=" in expr:
                                                 self.output.insert(0, MATH_ERROR)
@@ -670,19 +671,19 @@ class Calculator_fx:
                                                 self.fact_reg = "S"
                                                 self.finish_eval = True
                                                 self.output.insert(0, str(result))
-                                                if isinstance(result, (pfe.sqrt, float, pfe.Decimal, pfe.Fraction)) or result < 1:
+                                                if isinstance(result, (pfe.sqrt, float, pfe.Decimal, pfe.Fraction, pfe.Pi)) or result < 1:
                                                         self.history.append((expr, result, pfe.returning(result, "D"), [], True))
                                                 else:
                                                         self.history.append((expr, result, pfe.returning(result, "D"), pfe.FACT(result), True))
                                                 self.history_index = -1
                                                 self.current = expr
-                                except Exception as ex:
-                                        self.regulation = self.fact_reg = ""
-                                        self.output.delete(0, tk.END)
-                                        self.output.insert(0, ex)
-                                        print(ex)
-                                        self.finish_eval = True
-                                        self.current = expr
+                                #except Exception as ex:
+                                #        self.regulation = self.fact_reg = ""
+                                #        self.output.delete(0, tk.END)
+                                #        self.output.insert(0, ex)
+                                #        print(ex)
+                                #        self.finish_eval = True
+                                #        self.current = expr
                         elif self.eval_state == "solve_mode_calc":
                                 with open("new_run.txt", "a") as f:
                                         print(f'{expr} -> {pfe.preprocess_expression(expr)}\n', end='', file=f)
