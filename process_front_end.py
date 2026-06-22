@@ -1859,19 +1859,66 @@ def ln(num):
 
     return log(math.e, num)
 
-def lim(point, expr, *, direction="both",
+def lim(point, expr, var: str = "x", *, direction="both",
         steps=30, base=10,
-        INF=1e4):
+        INF=1e8):
     """
-    direction: "left", "right", "both"
+    `direction`: "left", "right", "both"
+
+    `point` = "+inf" or "-inf" if calculate lim_{var -> +infty} else real number
     """
 
+    def _normalize_point(value):
+        if isinstance(value, str):
+            text = value.strip().lower()
+            if text in {"+inf", "+infty", "+infinity"}:
+                return float("inf")
+            if text in {"-inf", "-infty", "-infinity"}:
+                return float("-inf")
+        return value
+
+    point = _normalize_point(point)
+    is_infinite_point = isinstance(point, (int, float)) and math.isinf(point)
+
     def eval_at(x):
-        return calc(expr, **{"x": x}, stor_in=False)
-    try:
-        return eval_at(point)
-    except:
-        pass
+        return calc(expr, **{var: x}, stor_in=False)
+
+    if not is_infinite_point:
+        try:
+            return eval_at(point)
+        except:
+            pass
+
+    if is_infinite_point:
+        target_sign = 1 if point > 0 else -1
+
+        last = None
+        for k in range(1, steps + 1):
+            x = target_sign * (base ** k)
+            try:
+                val = eval_at(x)
+            except:
+                continue
+
+            if abs(val) >= INF:
+                return float("inf") if val > 0 else float("-inf")
+
+            if last is not None:
+                if math.isclose(val, last, rel_tol=1e-9, abs_tol=1e-12):
+                    return 0 if abs(val) <= 1e-10 else returning(val)
+                if abs(val) > abs(last) and abs(val) > 1e6:
+                    last = val
+                else:
+                    last = val
+            else:
+                last = val
+
+        if last is None:
+            raise ValueError("Undefined limit")
+        if abs(last) <= 1e-10:
+            return 0
+        return returning(last)
+
     def scan(sign):
         last = None
         for k in range(1, steps + 1):
