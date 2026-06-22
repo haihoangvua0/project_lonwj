@@ -107,7 +107,7 @@ class euler_num:
 
 class Pi:
     def __init__(self, coef = 1, out = 0) -> None:
-        self.val = math.pi
+        self.val = coef * math.pi + out
         self.coef = coef
         self.add = out
     @property
@@ -122,7 +122,7 @@ class Pi:
             if self.coef:
                 display += f"{self.coef}{pi_symbol}"
             else: return "0"
-        
+
         if self.add > 0:
             return "(" + display + f"+{self.add})"
         elif self.add < 0:
@@ -180,7 +180,8 @@ class Pi:
         return self.value >= other
     def __format__(self, format_spec: str) -> str:
         return format(self.value, format_spec)
-    
+    def __int__(self): return int(self.value)
+    def __float__(self): return self.value
 
 pi = Pi()
 
@@ -230,7 +231,7 @@ class sqrt:
             self.coef = customised_sqrt(n.value)
             self.radicand = 1
         # ===== REAL =====
-        elif isinstance(n, (int, float, Fraction, Decimal)):
+        elif isinstance(n, (int, float, Fraction, Decimal, Pi)):
             self.val = customised_sqrt(n)
             if n >= 0:
                 if isinstance(n, int): 
@@ -663,14 +664,14 @@ class Complex:
         denominator = (self.real)**2 + (self.imag)**2
         return numerator / denominator
     def __pow__(self, other):
-    
+
         # ----- INTEGER POWER -----
         if isinstance(other, int):
             if other == 0:
                 return Complex(1, 0)
             if other < 0:
                 return Complex(1,0) / (self ** (-other))
-    
+
             result = Complex(1, 0)
             base = self
             while other:
@@ -679,39 +680,39 @@ class Complex:
                 base *= base
                 other >>= 1
             return result
-    
-    
+
+
         # ----- REAL POWER -----
         if isinstance(other, (int, float, Fraction, Decimal)):
-    
+
             r, theta = Pol(self.real, self.imag)
-    
+
             new_r = r ** other
             new_theta = theta * other
-    
+
             x, y = Rec(new_r, new_theta)
             return Complex(x, y)
-    
-    
+
+
         # ----- COMPLEX POWER -----
         if isinstance(other, (complex, Complex)):
-    
+
             a = other.real
             b = other.imag
-    
+
             r, theta = Pol(self.real, self.imag)
-    
+
             if r == 0:
                 return Complex(0,0)
 
             log_r = log(r)
-    
+
             exp_real = math.exp(a * log_r - b * theta)
             new_theta = a * theta + b * log_r
-    
+
             x, y = Rec(exp_real, new_theta)
             return Complex(x, y)
-    
+
         return NotImplemented
     def __rpow__(self, other):
         if isinstance(other, REAL):
@@ -1030,7 +1031,7 @@ def abs(n: int | float | Fraction | Decimal | complex | Complex):
         return (-1)*n if n < 0 else n
     if isinstance(n, (complex, Complex)): return sqrt((n.real)**2 + (n.imag)**2)
     raise TypeError(f"Not Implemented for {type(n) = }")
-    
+
 # ---------------------------------------------------------
 # 11. Unified returning
 # ---------------------------------------------------------
@@ -1086,13 +1087,13 @@ class returning:
             return n
 
         if choice.upper() == "S":
-            
+
             frac = Fraction(*float(n).as_integer_ratio()).limit_denominator()
             if abs(float(frac) - n) < 1e-15:
                 if frac.denominator == 1:
                     return frac.numerator
                 return frac
-            
+
 
         s = f"{n:.12f}".rstrip("0").rstrip(".")
         actual = float(s)
@@ -1464,7 +1465,7 @@ def preprocess_expression(expr: str, *, form=False) -> str:
     #    lambda m: f"__SCI{sci_tokens.append(m.group(0)) or len(sci_tokens)-1}__",  
     #    expr  
     #)  
- 
+
     # restore func
     for i, f in enumerate(func_calls):  
         expr = expr.replace(f"__FUNC{i}__", f) 
@@ -1557,11 +1558,11 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
     #try:
         global A, B, C, D, E, F, x, y, z, M, actual_val_const, Ans  
         from sympy import sympify, Eq, Symbol, solve  
-      
+
         # Nếu không có dấu "=", coi là =0  
         if "=" not in expr:  
             expr = expr + "=0"  
-      
+
         left, right = expr.split("=")  
         left = preprocess_expression(left); right = preprocess_expression(right)  
         # Lấy giá trị biến đã lưu (A, B, C, ...)  
@@ -1624,24 +1625,24 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
         left = sympify(left, locals=local_dict)  
         right = sympify(right, locals=local_dict)  
         equation = Eq(left, right)  
-      
+
         symbol = Symbol(var)  
         sol = solve(equation, symbol)  
-      
+
         if not sol:  
             return []  
-      
+
         # Chỉ trả nghiệm thực đầu tiên  
-      
+
         if ask:  
             if not app:  
                 res = []  
                 for s in sol:  
                     re, im = s.as_real_imag()  
-      
+
                     re_f = float(re.evalf())  
                     im_f = float(im.evalf())  
-      
+
                     if abs(im_f) < 1e-50:  
                         # nghiệm thực  
                         res.append(returning(re_f))  
@@ -1742,7 +1743,7 @@ def customised_sqrt(n: int | float | Decimal | Fraction | complex):
         elif n < 0: 
             real = abs(n)
             real = returning(math.sqrt(real))
-            return real*1j
+            return real*i
     return returning(math.sqrt(n))
 
 def cbrt(n: int | float | Decimal | Fraction | complex):
