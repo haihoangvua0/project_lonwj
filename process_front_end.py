@@ -6,6 +6,7 @@ import math, cmath, random, os
 from decimal import Decimal, getcontext
 from fractions import Fraction
 from decimal import Decimal
+from collections import Counter
 getcontext().prec = 50
 # Symbol
 theta_symbol = "\u03B8"     
@@ -1107,7 +1108,6 @@ class returning:
 
 def check_irrational(n: float) -> bool:
     try:
-        from fractions import Fraction
         f = Fraction(n).limit_denominator()
         return abs(float(f) - n) > 1e-50
     except Exception:
@@ -1115,6 +1115,7 @@ def check_irrational(n: float) -> bool:
 
 # =========================
 # Polar / rectangular helpers
+# =========================
 def Pol(x: int | float | Fraction | Decimal, y: int | Fraction | float | Decimal, ask: bool = False):
     r = returning(math.hypot(x, y))
     theta = returning(convert_deg(math.atan2(y, x)))
@@ -1138,10 +1139,9 @@ def Rec(r: int | float | Fraction | Decimal, theta: int | float | Fraction | Dec
 # Complex process helpers
 # =========================
 
-# Real part:
 def ReP(z: int | float | Fraction | complex | str):
     if complex_choice:
-        if isinstance(z, complex):
+        if isinstance(z, (complex, Complex)):
             return returning(z.real)
         elif isinstance(z, str):
             if angle in z:
@@ -1152,9 +1152,10 @@ def ReP(z: int | float | Fraction | complex | str):
         else:
             return returning(z)
     else: raise ValueError(MATH_ERROR)
+
 def ImP(z: int | float | Fraction | complex | str):
     if complex_choice:
-        if isinstance(z, complex):
+        if isinstance(z, (complex, Complex)):
             return returning(z.imag)
         elif isinstance(z, str):
             if angle in z:
@@ -1169,7 +1170,7 @@ def ImP(z: int | float | Fraction | complex | str):
 
 def Arg(z: complex | int | float | Fraction | str):
     if complex_choice:
-        if isinstance(z, complex):
+        if isinstance(z, (complex, Complex)):
             _, theta = Pol(z.real, z.imag)
             return theta
         elif isinstance(z, str):
@@ -1216,9 +1217,9 @@ def preprocess_expression(expr: str, *, form=False) -> str:
     #expr = expr.replace("^", "**")  
     expr = expr.strip(" ")
     if "÷÷" in expr:
-        raise ValueError("Syntax ERROR")
+        raise SyntaxError("Syntax ERROR")
     elif "**" in expr:
-        if not form: raise ValueError("Syntax ERROR")
+        if not form: raise SyntaxError("Syntax ERROR")
         expr = expr.replace("**", "^")
         #print(expr)
         # start to iter
@@ -1251,7 +1252,6 @@ def preprocess_expression(expr: str, *, form=False) -> str:
     # inte(a,b,expr)  -> inte(a,b,"expr")  
     # -------------------------------  
     def add_close_parentheses(expr: str):
-        from collections import Counter
         list_of_parentheses = []
         for i in expr:
             if i == "(" or ')': list_of_parentheses.append(i)
