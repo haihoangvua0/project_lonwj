@@ -48,7 +48,7 @@ class Calculator_fx:
         def __init__(self):  
                 self.win = tk.Tk()  
                 self.win.title("Casio FX Hybrid Simulator")  
-                self.win.geometry("400x600")
+                self.win.geometry("600x800")
                 self.win.config(bg="#00cbff")  
                 self.win.update_idletasks()
                 self.shift = False
@@ -119,6 +119,13 @@ class Calculator_fx:
                         justify="right", 
                 )  
                 self.output.pack(fill="x", pady=2)  
+
+                def handle_enter(event):
+                        self.equal_handle()
+                        return "break"
+
+                self.win.bind_all("<Return>", handle_enter)
+                self.win.bind_all("<KP_Enter>", handle_enter)
 
         def _clear_entries(self):
                 self.inputs.delete(0, tk.END)
@@ -404,7 +411,7 @@ class Calculator_fx:
                         expr = self.inputs.get()
                         text = ("*" if (0 < pos < len(expr) and \
                                         not any(expr[pos-len(i)] \
-                                                for i in sorted(pfe.names + ["Ans", "pi", "e"], 
+                                                for i in sorted(pfe.names + ["Ans", pfe.pi_symbol, "e"], 
                                                                 key=len, 
                                                                 reverse=True))) \
                                     else "") + value + "("
@@ -597,11 +604,7 @@ class Calculator_fx:
                                         pass
                                 elif self.history[self.history_index][3]:
                                         factors = self.history[self.history_index][3]
-                                        text = f"{factors[0][0]}^({factors[0][1]})"
-                                        for base, exponent in factors[1:-1]:
-                                                text += f"*{base}^({exponent})"
-                                        text += f"*{factors[-1][0]}^({factors[-1][1]})"
-                                        self.output.delete(0, tk.END)
+                                        text = "*".join(map(lambda x: "^(".join(map(str, x)) + ")", factors))
                                         self.output.insert(0, text)
                                         self.fact_reg = "N"
                         elif self.fact_reg == "N":
