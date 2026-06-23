@@ -1,6 +1,7 @@
 """File-App 1: Calculator Casio FX-580 mode Calculate"""
 import tkinter as tk  
 import process_front_end as pfe
+from collections import deque
 returning = pfe.returning
 
 MATH_ERROR = pfe.MATH_ERROR
@@ -55,9 +56,9 @@ class Calculator_fx:
                 self.alpha = False
                 self.eval_state = "eval" # eval, calc_ing, calc_ready, calc_finish, solve_mode
                 self.fact_reg = "S"
-                self.history = [] # ("", số gốc, số thập phân, dạng thừa số primes, True) True -> có thể mở lại lịch sử... False -> tắt chế độ xem lại lịch sử
+                self.history = deque() # ("", số gốc, số thập phân, dạng thừa số primes)
                 self.current = ""
-                self.history_index = -1
+                self.history_index = 0
                 self.finish_eval = False
                 self.regulation = "S"
                 self.env_state = "Calculate"
@@ -148,12 +149,12 @@ class Calculator_fx:
                 self.build_main_grid()
 
         def _history_item(self, expr, result):
-                if isinstance(result, (pfe.sqrt, float, pfe.Decimal, pfe.Fraction)) or result < 1:
+                if isinstance(result, (pfe.sqrt, float, pfe.Decimal, pfe.Fraction, pfe.Pi, pfe.euler_num)) or result < 1:
                         factors = []
                 else:
                         factors = pfe.FACT(result)
-                self.history.append((expr, result, pfe.returning(result, "D"), factors, True))
-                self.history_index = -1
+                self.history.appendleft((expr, result, pfe.returning(result, "D"), factors))
+                self.history_index = 0
                 self.current = expr
 
         def _show_result(self, expr, result):
@@ -209,7 +210,7 @@ class Calculator_fx:
                 elif value == "ON":
                         self._clear_entries()
                         self.history = []
-                        self.history_index = -1
+                        self.history_index = 0
 
 
                 # rebuild UI khi đổi mode
@@ -284,19 +285,21 @@ class Calculator_fx:
                                                 self.ensure_cursor_visible()
                 elif value == "up":
                         if self.history and ((not self.inputs.get() and not self.output.get()) or self.finish_eval):
-                                if self.history_index < -(len(self.history)):
+                                history = list(self.history)
+                                if self.history_index >= (len(history)):
                                         return
-                                contents = self.history[self.history_index]
+                                contents = history[self.history_index]
                                 if contents[-1]:
-                                        self.history_index = (self.history_index - 1) if self.history_index > -(len(self.history)) else self.history_index
                                         self.inputs.delete(0, tk.END)
                                         self.inputs.insert(0, contents[0])
                                         self.inputs.icursor(tk.END)
                                         self.output.delete(0, tk.END)
-                                        self.output.insert(0, contents[1])
+                                        self.output.insert(0, str(contents[1]))
                                         self.regulation = "S"
                                         self.fact_reg = "S"
-                                        self._reset_finish_state()
+                                        self.finish_eval = True
+                                        self.eval_state = "eval"
+                                        self.history_index += (0 if self.history_index + 1 == len(history) else 1)
                         else:
                                 if self.finish_eval:
                                         self.output.delete(0, tk.END)
@@ -306,19 +309,21 @@ class Calculator_fx:
                                 self.inputs.icursor(0)
                 elif value == "down":
                         if self.history and ((not self.inputs.get() and not self.output.get()) or self.finish_eval):
-                                if self.history_index > -1:
+                                history = list(self.history)
+                                if self.history_index < 0:
                                         return
-                                contents = self.history[self.history_index]
+                                contents = history[self.history_index]
                                 if contents[-1]:
-                                        self.history_index = (self.history_index + 1) if self.history_index < -1 else self.history_index
                                         self.inputs.delete(0, tk.END)
                                         self.inputs.insert(0, contents[0])
                                         self.inputs.icursor(tk.END)
                                         self.output.delete(0, tk.END)
-                                        self.output.insert(0, contents[1])
+                                        self.output.insert(0, str(contents[1]))
                                         self.regulation = "S"
                                         self.fact_reg = "S"
-                                        self._reset_finish_state()
+                                        self.finish_eval = True
+                                        self.eval_state = "eval"
+                                        self.history_index -= (0 if self.history_index == 0 else 1)
                         else:
                                 if self.finish_eval:
                                         self.output.delete(0, tk.END)
@@ -740,7 +745,7 @@ class Calculator_fx:
                         self._reset_finish_state()
                         self.eval_state = "eval"
                         self._clear_entries()
-                        self.history_index = -1
+                        self.history_index = 0
                 elif value == "DEL":
                         self.finish_eval = False
                         text = self.inputs.get()
@@ -776,7 +781,7 @@ class Calculator_fx:
                         if self.finish_eval:
                                 self._clear_entries()
                                 self.finish_eval = False
-                        text = value + "()"
+                        text = value + "("
                         self.inputs.insert(pos, text)
                         self.inputs.icursor(pos+len(text)-1)
                 elif value in "+-*÷/":
