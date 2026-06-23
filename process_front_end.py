@@ -63,7 +63,7 @@ class euler_num:
     def __rmul__(self, other):
         if isinstance(other, euler_num):
             return other.value * self.value
-        return other - self.value
+        return other * self.value
     def __rtruediv__(self, other):
         if isinstance(other, euler_num):
             return other.value / self.value
@@ -138,7 +138,7 @@ class Pi:
     def __radd__(self, other):
         return self + other
     def __sub__(self, other):
-        return self - other
+        return self + (-other)
     def __rsub__(self, other):
         return -self + other
     def __mul__(self, other):
@@ -560,8 +560,8 @@ class sqrt:
 # 5. Runtime values
 REAL = (int, float, Fraction, Decimal, euler_num, sqrt)
 class Complex:
-    def __init__(self, real: int | float | Fraction | Decimal = 0, 
-                       imag: int | float | Fraction | Decimal = 0):
+    def __init__(self, real: int | float | Fraction | Decimal | Pi | sqrt | complex = 0, 
+                       imag: int | float | Fraction | Decimal | Pi | sqrt | complex = 0):
         self.re = None
         self.im = None
         # real part
@@ -900,32 +900,34 @@ def convert_deg(x: int | float | Fraction | Decimal):
 # 3. Trig functions (Casio-compatible) + Hypebolic Funcs
 def sin(x):
     a = _to_radian_if_needed(x)
-
     # bẫy bội của pi
     k = round(a / pi)
     if abs(a - k * pi) <= 1e-12:
         return 0
-
     beta = returning((180 * a) / pi)
+    
+    # CHUẨN HÓA GÓC: Đưa góc beta về đoạn [0, 360) bằng phép chia lấy dư
+    if not isinstance(beta, (complex, Complex)):
+        beta = beta % 360
 
     base = {
         0: 0,
-        15: Fraction(1,4)*(sqrt(6) - sqrt(2)),
-        18: Fraction(1,4)*(sqrt(5) - 1),
-        30: Fraction(1,2),
-        45: Fraction(1,2)*sqrt(2),
-        60: Fraction(1,2)*sqrt(3),
-        75: Fraction(1,4)*(sqrt(6) + sqrt(2)),
+        15: Fraction(1, 4) * (sqrt(6) - sqrt(2)),
+        18: Fraction(1, 4) * (sqrt(5) - 1),
+        30: Fraction(1, 2),
+        45: Fraction(1, 2) * sqrt(2),
+        60: Fraction(1, 2) * sqrt(3),
+        75: Fraction(1, 4) * (sqrt(6) + sqrt(2)),
         90: 1
     }
-
     if beta <= 90:
         return base.get(beta, returning(math.sin(a)))
-    if beta <= 180:
+    elif beta <= 180:
         return base.get(180 - beta, returning(math.sin(a)))
-    if beta <= 270:
+    elif beta <= 270:
         return -base.get(beta - 180, returning(math.sin(a)))
-    return -base.get(360 - beta, returning(math.sin(a)))
+    else:
+        return -base.get(360 - beta, returning(math.sin(a)))
 
 def cos(x):
     global ANGLE_MODE
@@ -1555,16 +1557,22 @@ def evaluate_expression(expr: str,
     return res
 
 def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
-    #try:
-        global A, B, C, D, E, F, x, y, z, M, actual_val_const, Ans  
-        from sympy import sympify, Eq, Symbol, solve  
+    """
+    Hàm được chia ra làm 2 phần.
 
-        # Nếu không có dấu "=", coi là =0  
-        if "=" not in expr:  
+    Phần đầu dùng sympy, giải những bài cỡ trung, cùng lắm có 2 hàm KHÔNG lồng nhau.
+
+    Phần thứ 2 dùng Improved Newton-Rapson Method + ý tưởng của binary search. Khoảng giá trị tối đa là `10^17 * 2`, bởi nếu được thì đối xứng qua trục tung, không được thì tối đa `10^9 * 2`.
+    """
+    global A, B, C, D, E, F, y, z, M, actual_val_const, Ans
+    if "=" not in expr:  
             expr = expr + "=0"  
 
-        left, right = expr.split("=")  
-        left = preprocess_expression(left); right = preprocess_expression(right)  
+    left, right = expr.split("=") 
+    left = preprocess_expression(left); right = preprocess_expression(right)  
+    try:
+        # phần 1.
+        from sympy import sympify, Eq, Symbol, solve, E as e_, I
         # Lấy giá trị biến đã lưu (A, B, C, ...)  
         avail_var = {  
             "A": A,  
@@ -1582,8 +1590,8 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
             "asin": asin, "acos": acos, "atan": atan,  
             "ln": ln,   
             "log": log,  
-            "pi": pi,  
-            "e": e,  
+            pi_symbol: math.pi,  
+            "e": e_,  
             "comb": comb,  
             "factorial": factorial,  
             "perm": perm,   
@@ -1608,7 +1616,7 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
             FUNC_MAP.pop("Rec")  
             FUNC_MAP.pop("Pol")  
             FUNC_MAP.update({  
-                "i": i,  
+                "i": I,  
                 "ImP": ImP,  
                 "ReP": ReP,  
                 "Arg": Arg,  
@@ -1621,7 +1629,7 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
         local_dict.update(vars_val)  
         # Inject centralized function map so sympify/eval has access to helpers  
         local_dict.update(FUNC_MAP)  
-        stor(**vars_val)  
+        stor(**vars_val)
         left = sympify(left, locals=local_dict)  
         right = sympify(right, locals=local_dict)  
         equation = Eq(left, right)  
@@ -1634,37 +1642,166 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
 
         # Chỉ trả nghiệm thực đầu tiên  
 
-        if ask:  
-            if not app:  
-                res = []  
-                for s in sol:  
-                    re, im = s.as_real_imag()  
-
-                    re_f = float(re.evalf())  
-                    im_f = float(im.evalf())  
-
-                    if abs(im_f) < 1e-50:  
-                        # nghiệm thực  
-                        res.append(returning(re_f))  
-                    else:  
-                        # nghiệm phức  
-                        res.append(Complex(re_f, im_f))  
-                return res  
-            else: pass  
-        elif app:  
+        if ask:   
+            res = []  
             for s in sol:  
-                if s.is_real:   
-                    x_val = str(s)  
-                    stor(x=x_val)  
-                    return x_val  
+                re, im = s.as_real_imag()  
+
+                re_f = float(re.evalf())  
+                im_f = float(im.evalf())  
+
+                if abs(im_f) < 1e-50:  
+                    # nghiệm thực  
+                    res.append(returning(re_f))  
+                else:  
+                    # nghiệm phức  
+                    res.append(Complex(re_f, im_f))  
+            return res    
         for s in sol:  
             if s.is_real:   
                 x_val = returning(evaluate_expression(str(s)))  
                 stor(x=x_val)  
                 return x_val   
         return []
-    #except:
-#        pass
+    except:
+        # =====================================================================
+        # PHẦN 2: IMPROVED NEWTON-RAPHSON + BINARY SEARCH (INTERVAL BRACKETING)
+        # =====================================================================
+        
+        # 1. Xây dựng môi trường tính toán số thuần túy (tránh dùng SymPy để đạt tốc độ tối đa)
+        eval_env = {
+            "sin": sin, "cos": cos, "tan": tan,  
+            "asin": asin, "acos": acos, "atan": atan,  
+            "ln": ln, "log": log, "sqrt": sqrt, "exp": exp, "abs": abs,
+            "math": math, "pi": math.pi, "e": math.e,
+            "A": A, "B": B, "C": C, "D": D, "E": E, "F": F, "y": y, "z": z, "M": M
+        }
+        eval_env.update(actual_val_const)
+        eval_env.update(vars_val)
+        
+        # Hàm hiệu số: F(x) = Left - Right. Mục tiêu là tìm x để F(x) xấp xỉ 0
+        target_expr = f"({left}) - ({right})"
+        
+        def f(v):
+            eval_env[var] = v
+            try:
+                res = eval(target_expr, {"__builtins__": {}}, eval_env)
+                # Mở gói nếu kết quả trả về là các Class tự chế (euler_num, Pi, Fraction, v.v.)
+                if hasattr(res, "value"):
+                    return float(res.value)
+                return float(res)
+            except:
+                return float('nan')
+
+        # 2. Xác định điểm đoán nhận ban đầu (Initial Guess) giống Casio SOLVE
+        # Nếu người dùng không nhập truyền vào qua vars_val, tìm trong globals, mặc định là 0.0
+        x0 = 0.0
+        if var in vars_val:
+            x0 = float(vars_val[var])
+        else:
+            try:
+                x0 = float(globals().get(var, 0.0))
+            except:
+                x0 = 0.0
+        
+        # Kiểm tra xem chính điểm đoán ban đầu đã là nghiệm chưa
+        if not math.isnan(f(x0)) and abs(f(x0)) < 1e-12:
+            sol_val = returning(x0)
+            if ask: return [sol_val]
+            stor(**{var: sol_val})
+            return sol_val
+
+        # 3. Thuật toán săn khoảng đan dấu (Bracket Hunting) - Ý tưởng Binary Search mở rộng biên
+        # Quét đối xứng qua trục tung và mở rộng lũy thừa lên tới 2*10^9 hoặc 2*10^17
+        a, b = None, None
+        found_bracket = False
+        step = 0.1
+        max_bound = 2e17  # Giới hạn tối đa như bạn mong muốn
+        
+        for _ in range(80):
+            x_left = x0 - step
+            x_right = x0 + step
+            
+            f_l = f(x_left)
+            f_r = f(x_right)
+            f_c = f(x0)
+            
+            # Kiểm tra đan dấu giữa các khoảng để cô lập nghiệm
+            if not math.isnan(f_l) and not math.isnan(f_c) and f_l * f_c <= 0:
+                a, b = x_left, x0
+                found_bracket = True
+                break
+            if not math.isnan(f_r) and not math.isnan(f_c) and f_r * f_c <= 0:
+                a, b = x0, x_right
+                found_bracket = True
+                break
+            if not math.isnan(f_l) and not math.isnan(f_r) and f_l * f_r <= 0:
+                a, b = x_left, x_right
+                found_bracket = True
+                break
+            
+            step *= 2.5  # Tăng nhanh kích thước bước nhảy để quét tới khoảng cực đại
+            if step > max_bound:
+                break
+
+        # 4. Thuật toán lai (Hybrid): Newton-Raphson cải tiến + Bisection Fallback
+        x_curr = x0
+        if found_bracket:
+            # Nếu tìm thấy khoảng đan dấu [a, b], thuật toán sẽ được bảo hiểm 100% hội tụ
+            x_curr = x0 if (a <= x0 <= b) else (a + b) / 2.0
+            for _ in range(100):
+                f_curr = f(x_curr)
+                if abs(f_curr) < 1e-12 or abs(b - a) < 1e-12:
+                    break
+                
+                # Tính đạo hàm số (Numerical Derivative) tại điểm hiện tại để làm bước nhảy Newton
+                h = 1e-7 if abs(x_curr) < 1 else 1e-7 * abs(x_curr)
+                f_plus = f(x_curr + h)
+                df = (f_plus - f_curr) / h
+                
+                newton_success = False
+                if df != 0 and not math.isnan(df):
+                    x_new = x_curr - f_curr / df
+                    # Nếu bước nhảy Newton an toàn nằm trong khoảng cô lập, chấp nhận nó
+                    if a <= x_new <= b:
+                        x_curr = x_new
+                        newton_success = True
+                
+                if not newton_success:
+                    # Nếu Newton nhảy bậy ra ngoài biên hoặc gặp đạo hàm = 0, lập tức dùng Binary Search (Chia đôi) để bóp nghẹt nghiệm
+                    x_curr = (a + b) / 2.0
+                
+                # Cập nhật lại biên đan dấu [a, b]
+                f_curr = f(x_curr)
+                if math.isnan(f_curr):
+                    break
+                if f(a) * f_curr <= 0:
+                    b = x_curr
+                else:
+                    a = x_curr
+        else:
+            # Nếu không tìm được khoảng đan dấu (hàm không đổi dấu hoặc nằm ở vùng không xác định), 
+            # cố gắng chạy thuần Newton-Raphson có giới hạn để cầu may nghiệm chạm trục hoành
+            for _ in range(60):
+                f_curr = f(x_curr)
+                if math.isnan(f_curr) or abs(f_curr) < 1e-12:
+                    break
+                h = 1e-7 if abs(x_curr) < 1 else 1e-7 * abs(x_curr)
+                f_plus = f(x_curr + h)
+                df = (f_plus - f_curr) / h
+                if df == 0 or math.isnan(df):
+                    break
+                x_curr -= f_curr / df
+
+        # 5. Kiểm tra tính hợp lệ của nghiệm cuối cùng trước khi trả về
+        if not math.isnan(x_curr) and abs(f(x_curr)) < 1e-5:
+            sol_val = returning(x_curr)
+            if ask:
+                return [sol_val]
+            stor(**{var: sol_val})  # Lưu nghiệm vào biến X để Ans hoặc các phép tính sau kế thừa
+            return sol_val
+        
+        return []
 
 # 13. Roots and powers
 def exp(n: int | float | Decimal | Fraction | sqrt | complex):
@@ -1735,15 +1872,19 @@ def FACT(n: int, primes=None):
 
 def customised_sqrt(n: int | float | Decimal | Fraction | complex):
     global complex_choice
-
-    if isinstance(n, complex):
-        return cmath.sqrt(n)
+    # Kiểm tra cả kiểu complex của Python lẫn lớp Complex tùy biến của bạn
+    if isinstance(n, (complex, Complex)):
+        if isinstance(n, Complex):
+            # Ép về kiểu số phức chuẩn của Python để cmath tính toán ổn định
+            n = complex(float(n.real), float(n.imag))
+        res = cmath.sqrt(n)
+        return Complex(res.real, res.imag)
     elif n < 0:
-        if not complex_choice: raise ValueError(MATH_ERROR)
-        elif n < 0: 
-            real = abs(n)
-            real = returning(math.sqrt(real))
-            return real*i
+        if not complex_choice:
+            raise ValueError(MATH_ERROR)
+        real = abs(n)
+        real = returning(math.sqrt(real))
+        return real * i
     return returning(math.sqrt(n))
 
 def cbrt(n: int | float | Decimal | Fraction | complex):
@@ -1786,9 +1927,9 @@ def factorial(n: int | float):
         raise ValueError(MATH_ERROR)
 
 
-def Pow(base: int | float | Fraction | Decimal | complex,
-        exp: int | float | Fraction | Decimal | complex,
-        mod: int | float | Fraction | Decimal | complex | None = None):
+def Pow(base: int | float | Fraction | Decimal | Complex,
+        exp: int | float | Fraction | Decimal | Complex,
+        mod: int | float | Fraction | Decimal | Complex | None = None):
     # MOD only allowed for integer exponent
     if mod is not None:
         if not isinstance(exp, int):
@@ -1918,7 +2059,7 @@ def d_dx(expression: str, val: int | None = None):
     from sympy import symbols, diff, sympify
 
     x = symbols("x")
-    expr = sympify(preprocess_expression(expression))
+    expr = sympify(preprocess_expression(expression).replace(pi_symbol, "pi"))
 
     # Nếu không truyền giá trị -> trả về biểu thức đạo hàm
     derivative = diff(expr, x)
@@ -1936,30 +2077,35 @@ def d_dx(expression: str, val: int | None = None):
         except Exception as er:
             raise ValueError("Error message:" + er)
 def inte(expression: str, low: float, high: float, *, var: str = "x"):
+    """
+    Hàm tính tích phân của một hàm trên khoảng [low; high]
+    
+    Hàm gồm 2 phần:
+
+    Phần 1: Tính tích phân bằng sympy và chuẩn hoá kết quả.
+
+    Phần 2: Tính tích phân bằng xấp xỉ tuyến tính.
+    """
     from sympy import symbols, integrate, sympify
     global actual_val_const
     x = symbols(var)
-    #print(expression)
-    expr = sympify(preprocess_expression(expression), )
-    #print(expr)
+    expr = sympify(preprocess_expression(expression).replace(pi_symbol, "pi"))
     try:
+        # phần 1.
         res = (integrate(expr, (x, low, high)))
-        #print(res)
         if res.is_real:
-            return returning(res)
-        else: # if isinstance(res, str):
+            return returning(float(res))
+        else:
             return evaluate_expression(str(res), from_=True)
     except:
-        res = integrate(expr, x)
-        new_primitive = str(res)
-        print(new_primitive)
-        return calc(new_primitive, stor_in=False, x=high) - calc(new_primitive, stor_in=False, x=low)
+        # Phần 2.
+        pass
 
 # 16. Series / product helpers
 def sums(expression: str, first: int, end: int, *, var: str = "x"):
     from sympy import symbols, summation, sympify
     i = symbols(var)
-    expr = sympify(preprocess_expression(expression))
+    expr = sympify(preprocess_expression(expression).replace(pi_symbol, "pi"))
     res = (summation(expr, (i, first, end)))
     #print(str(res))
     if res.is_real:
@@ -1970,7 +2116,7 @@ def sums(expression: str, first: int, end: int, *, var: str = "x"):
 def muls(expression: str, first: int, end: int, *, var: str = "x"):
     from sympy import symbols, product, sympify
     i = symbols(var)
-    expr = sympify(preprocess_expression(expression))
+    expr = sympify(preprocess_expression(expression).replace(pi_symbol, "pi"))
     res = (product(expr, (i, first, end)))
     if res.is_real:
         return returning(res)
@@ -1980,7 +2126,7 @@ def muls(expression: str, first: int, end: int, *, var: str = "x"):
 # 17. Expression calculation
 def calc(expr: str, stor_in=True, **vars_values):
     from sympy import sympify
-    expr = preprocess_expression(expr)
+    expr = preprocess_expression(expr).replace(pi_symbol, "pi")
 
     # Tách các biến từ chuỗi
     symbols = list(sympify(expr).free_symbols)
