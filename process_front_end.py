@@ -2076,30 +2076,48 @@ def d_dx(expression: str, val: int | None = None):
                 return evaluate_expression(str(res), from_=True) 
         except Exception as er:
             raise ValueError("Error message:" + er)
+
 def inte(expression: str, low: float, high: float, *, var: str = "x"):
     """
     Hàm tính tích phân của một hàm trên khoảng [low; high]
-    
     Hàm gồm 2 phần:
-
     Phần 1: Tính tích phân bằng sympy và chuẩn hoá kết quả.
-
-    Phần 2: Tính tích phân bằng xấp xỉ tuyến tính.
+    Phần 2: Tính tích phân bằng xấp xỉ số học (Phương pháp Simpson).
     """
     from sympy import symbols, integrate, sympify
     global actual_val_const
-    x = symbols(var)
-    expr = sympify(preprocess_expression(expression).replace(pi_symbol, "pi"))
     try:
-        # phần 1.
+        # Phần 1: Thử giải bằng phương pháp giải tích (SymPy)
+        x = symbols(var)
+        expr = sympify(preprocess_expression(expression).replace(pi_symbol, "pi"))
         res = (integrate(expr, (x, low, high)))
         if res.is_real:
             return returning(float(res))
         else:
             return evaluate_expression(str(res), from_=True)
     except:
-        # Phần 2.
-        pass
+        # Phần 2: Xấp xỉ số học bằng phương pháp Simpson 1/3 khi giải tích thất bại
+        try:
+            expr_str = preprocess_expression(expression)
+            # Tạo hàm cục bộ tính giá trị nhanh dựa trên thư viện math chuẩn để tăng tốc độ lặp
+            f_eval = lambda val: eval(expr_str, {"__builtins__": {}}, {
+                var: val, "sin": math.sin, "cos": math.cos, "tan": math.tan,
+                "log": math.log, "ln": math.log, "sqrt": sqrt, pi_symbol: pi, "e": e
+            })
+            
+            n_steps = 1000  # Số đoạn chia lưới (phải là số chẵn)
+            h_step = (high - low) / n_steps
+            total_sum = f_eval(low) + f_eval(high)
+            
+            for j in range(1, n_steps):
+                val_j = low + j * h_step
+                weight = 4 if j % 2 != 0 else 2
+                total_sum += weight * f_eval(val_j)
+                
+            res_val = (h_step / 3) * total_sum
+            return returning(res_val)
+        except:
+            raise ValueError(MATH_ERROR)
 
 # 16. Series / product helpers
 def sums(expression: str, first: int, end: int, *, var: str = "x"):
