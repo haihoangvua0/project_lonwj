@@ -6,7 +6,6 @@ import math, cmath, random, os
 from decimal import Decimal, getcontext
 from fractions import Fraction
 from decimal import Decimal
-from collections import Counter
 getcontext().prec = 50
 # Symbol
 theta_symbol = "\u03B8"     
@@ -239,7 +238,7 @@ class sqrt:
                     out, ins = split_in_out(n)
                     self.coef = out
                     self.radicand = ins
-                elif isinstance(n, (float, Decimal)):
+                elif isinstance(n, (float, Decimal, Pi, euler_num)):
                     n = float(n)
                     if check_irrational(n):
                         self.coef = self.val
@@ -299,7 +298,7 @@ class sqrt:
                         ins *= k
                 self.coef = out * i
                 self.radicand = ins
-        elif isinstance(n, complex):
+        elif isinstance(n, (complex, Complex)):
             if not complex_choice: raise ValueError(MATH_ERROR)
             self.val = customised_sqrt(n)
             self.coef = self.val
@@ -1108,6 +1107,7 @@ class returning:
 
 def check_irrational(n: float) -> bool:
     try:
+        from fractions import Fraction
         f = Fraction(n).limit_denominator()
         return abs(float(f) - n) > 1e-50
     except Exception:
@@ -1115,7 +1115,6 @@ def check_irrational(n: float) -> bool:
 
 # =========================
 # Polar / rectangular helpers
-# =========================
 def Pol(x: int | float | Fraction | Decimal, y: int | Fraction | float | Decimal, ask: bool = False):
     r = returning(math.hypot(x, y))
     theta = returning(convert_deg(math.atan2(y, x)))
@@ -1139,9 +1138,10 @@ def Rec(r: int | float | Fraction | Decimal, theta: int | float | Fraction | Dec
 # Complex process helpers
 # =========================
 
+# Real part:
 def ReP(z: int | float | Fraction | complex | str):
     if complex_choice:
-        if isinstance(z, (complex, Complex)):
+        if isinstance(z, complex):
             return returning(z.real)
         elif isinstance(z, str):
             if angle in z:
@@ -1152,10 +1152,9 @@ def ReP(z: int | float | Fraction | complex | str):
         else:
             return returning(z)
     else: raise ValueError(MATH_ERROR)
-
 def ImP(z: int | float | Fraction | complex | str):
     if complex_choice:
-        if isinstance(z, (complex, Complex)):
+        if isinstance(z, complex):
             return returning(z.imag)
         elif isinstance(z, str):
             if angle in z:
@@ -1170,7 +1169,7 @@ def ImP(z: int | float | Fraction | complex | str):
 
 def Arg(z: complex | int | float | Fraction | str):
     if complex_choice:
-        if isinstance(z, (complex, Complex)):
+        if isinstance(z, complex):
             _, theta = Pol(z.real, z.imag)
             return theta
         elif isinstance(z, str):
@@ -1217,9 +1216,9 @@ def preprocess_expression(expr: str, *, form=False) -> str:
     #expr = expr.replace("^", "**")  
     expr = expr.strip(" ")
     if "÷÷" in expr:
-        raise SyntaxError("Syntax ERROR")
+        raise ValueError("Syntax ERROR")
     elif "**" in expr:
-        if not form: raise SyntaxError("Syntax ERROR")
+        if not form: raise ValueError("Syntax ERROR")
         expr = expr.replace("**", "^")
         #print(expr)
         # start to iter
@@ -1252,6 +1251,7 @@ def preprocess_expression(expr: str, *, form=False) -> str:
     # inte(a,b,expr)  -> inte(a,b,"expr")  
     # -------------------------------  
     def add_close_parentheses(expr: str):
+        from collections import Counter
         list_of_parentheses = []
         for i in expr:
             if i == "(" or ')': list_of_parentheses.append(i)
@@ -1859,66 +1859,19 @@ def ln(num):
 
     return log(math.e, num)
 
-def lim(point, expr, var: str = "x", *, direction="both",
+def lim(point, expr, *, direction="both",
         steps=30, base=10,
-        INF=1e8):
+        INF=1e4):
     """
-    `direction`: "left", "right", "both"
-
-    `point` = "+inf" or "-inf" if calculate lim_{var -> +infty} else real number
+    direction: "left", "right", "both"
     """
-
-    def _normalize_point(value):
-        if isinstance(value, str):
-            text = value.strip().lower()
-            if text in {"+inf", "+infty", "+infinity"}:
-                return float("inf")
-            if text in {"-inf", "-infty", "-infinity"}:
-                return float("-inf")
-        return value
-
-    point = _normalize_point(point)
-    is_infinite_point = isinstance(point, (int, float)) and math.isinf(point)
 
     def eval_at(x):
-        return calc(expr, **{var: x}, stor_in=False)
-
-    if not is_infinite_point:
-        try:
-            return eval_at(point)
-        except:
-            pass
-
-    if is_infinite_point:
-        target_sign = 1 if point > 0 else -1
-
-        last = None
-        for k in range(1, steps + 1):
-            x = target_sign * (base ** k)
-            try:
-                val = eval_at(x)
-            except:
-                continue
-
-            if abs(val) >= INF:
-                return float("inf") if val > 0 else float("-inf")
-
-            if last is not None:
-                if math.isclose(val, last, rel_tol=1e-9, abs_tol=1e-12):
-                    return 0 if abs(val) <= 1e-10 else returning(val)
-                if abs(val) > abs(last) and abs(val) > 1e6:
-                    last = val
-                else:
-                    last = val
-            else:
-                last = val
-
-        if last is None:
-            raise ValueError("Undefined limit")
-        if abs(last) <= 1e-10:
-            return 0
-        return returning(last)
-
+        return calc(expr, **{"x": x}, stor_in=False)
+    try:
+        return eval_at(point)
+    except:
+        pass
     def scan(sign):
         last = None
         for k in range(1, steps + 1):
@@ -2238,4 +2191,4 @@ del res_;
 Ans = 0
 
 if __name__ == "__main__":
-    print(sin(75))
+    print(sqrt(pi+3))
