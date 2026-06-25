@@ -424,6 +424,7 @@ class Calculator_fx:
 
                         # Reset sau khi vừa eval xong hoặc màn hình trống
                         if self.finish_eval or not text:
+                                self._reset_finish_state()
                                 self._clear_entries()
                                 self.inputs.insert(0, "()/()")
                                 self.inputs.icursor(1)
