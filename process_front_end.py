@@ -104,6 +104,10 @@ class euler_num:
 
     def __ge__(self, other):
         return not self < other
+    @staticmethod
+    def __ln__(z: complex | Complex):
+        """Chỉ hỗ trợ số phức."""
+        return ln(abs(z)) + Complex(0, 1) * Arg(z)
 
 class Pi:
     def __init__(self, coef = 1, out = 0) -> None:
@@ -305,13 +309,13 @@ class sqrt:
             self.radicand = 1
         elif isinstance(n, list):
             res = 0
-            for i in range(len(n)):
-                if isinstance(n[i][0], (float, Decimal)):
-                        if check_irrational(n[i][0]):
+            for idx in range(len(n)):
+                if isinstance(n[idx][0], (float, Decimal)):
+                        if check_irrational(n[idx][0]):
                                 pass
                         else:
-                                n[i] = (Fraction(*float(n[i][0]).as_integer_ratio()).limit_denominator(), n[i][1])
-                res += (n[i][0]*customised_sqrt(n[i][1]))
+                                n[idx] = (Fraction(*float(n[idx][0]).as_integer_ratio()).limit_denominator(), n[idx][1])
+                res += (n[idx][0]*customised_sqrt(n[idx][1]))
             self.val = res
             self.sums_terms = n
     @property
@@ -581,7 +585,7 @@ class Complex:
                 self.re -= im
                 self.im += re
                 # final modify
-        elif isinstance(imag, REAL):
+        elif isinstance(imag, REAL + (Pi, )):
             imag = returning(imag)
             self.im = imag
         else: raise ValueError(f"Initialization Error for \"{imag = }\"")
@@ -1046,6 +1050,19 @@ class returning:
                 /):
         global complex_choice
 
+        if isinstance(n, (complex, Complex)):
+            if not complex_choice:
+                raise ValueError(MATH_ERROR)
+            real_part = returning(n.real)
+            imag_part = returning(n.imag)
+            if isinstance(real_part, (int, float, scientific_number)) and abs(float(real_part)) < 1e-14:
+                real_part = 0
+            if isinstance(imag_part, (int, float, scientific_number)) and abs(float(imag_part)) < 1e-14:
+                imag_part = 0
+            if imag_part == 0:
+                return real_part
+            return Complex(real_part, imag_part)
+
         if isinstance(n, Decimal):
             n = float(n)
 
@@ -1063,10 +1080,6 @@ class returning:
             if abs(n - round(n)) < 1e-8:
                 return int(round(n))
 
-        elif isinstance(n, complex):
-            if not complex_choice:
-                raise ValueError(MATH_ERROR)
-            return n
         elif isinstance(n, sqrt):
             if choice == "D":
                 return n.value
@@ -1217,6 +1230,7 @@ def preprocess_expression(expr: str, *, form=False) -> str:
 
     #expr = expr.replace("^", "**")  
     expr = expr.strip(" ")
+    expr = expr.replace(" ", "")
     if "÷÷" in expr:
         raise ValueError("Syntax ERROR")
     elif "**" in expr:
@@ -1383,7 +1397,7 @@ def preprocess_expression(expr: str, *, form=False) -> str:
         "modulo"  
     ]
     str_of_func = "|".join(funcs)
-    new = names + [pi_symbol, "e", "Ans", "MatA", "MatB", "MatC", "MatD"] + list(actual_val_const)
+    new = names + [pi_symbol, "i", "e", "Ans", "MatA", "MatB", "MatC", "MatD"] + list(actual_val_const)
     str_of_var = "|".join(new)
     func_calls = []  
     def protect_func(m):  
@@ -1479,11 +1493,11 @@ def preprocess_expression(expr: str, *, form=False) -> str:
     expr = re.sub(rf'\)({str_of_var})', r')*\1', expr)  
     #expr = re.sub(r'(\d)([A-Za-z])', r'\1*\2', expr) 
     expr = re.sub(rf'(\d)({str_of_func})', r'\1*\2', expr) 
-    expr = re.sub(rf'({str_of_var})({str_of_var})', r'\1*\2', expr)  # biến với biến
-    expr = re.sub(rf"({str_of_var})({str_of_func})", r'\1*\2', expr) # biến với hàm
-    expr = re.sub(rf"({str_of_var})(\d)", r"\1*\2", expr)
-    expr = re.sub(rf"(\d)({str_of_var}|VecA|VecB|VecC|VecD)", r"\1*\2", expr)
-    #expr = expr.replace("e*xp", "exp")
+    expr = re.sub(rf'(?<![A-Za-z0-9_.])({str_of_var})({str_of_var})(?![A-Za-z0-9_.])', r'\1*\2', expr)  # biến với biến
+    expr = re.sub(rf'(?<![A-Za-z0-9_.])({str_of_var})({str_of_func})(?=\()', r'\1*\2', expr) # biến với hàm
+    expr = re.sub(rf'({str_of_var})(\d)', r"\1*\2", expr)
+    expr = re.sub(rf'(\d)({str_of_var}|VecA|VecB|VecC|VecD)', r"\1*\2", expr)
+    expr = expr.replace("e*xp", "exp")
     expr = expr.replace("int*e", "inte")
     expr = expr.replace("nt*h_rt", "nth_rt")
     # -------------------------------  
@@ -1806,13 +1820,19 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
 # 13. Roots and powers
 def exp(n: int | float | Decimal | Fraction | sqrt | complex):
     global complex_choice, ANGLE_MODE
-    if isinstance(n, complex):
+    if isinstance(n, (complex, Complex)):
         if not complex_choice:
             raise ValueError(MATH_ERROR)
         a = n.real
         b = n.imag
         real_part = math.exp(a)
-        imag_part = returning(math.cos(b)) + returning(math.sin(b)) * i
+        # Đã phát hiện lỗi. `math.sin` và `math.cos` có precision rất cao khi cho \alpha không bằng bội của pi
+        # Cái này là một vấn đề khá nan giải, tại sin và cos trong `math` tính bằng xấp xỉ taylor và hỗ trợ cho tan, cot dễ dàng hơn.
+        # Để chữa cháy, chúng ta sẽ dùng lại chính hàm sin với cos đã được định nghĩa sẵn.
+        temp = ANGLE_MODE
+        ANGLE_MODE = "RAD"
+        imag_part = returning(cos(b)) + returning(sin(b)) * Complex(0, 1)
+        ANGLE_MODE = temp
 
         return real_part * imag_part
     elif returning(n) == float("inf"):
@@ -1928,37 +1948,40 @@ def factorial(n: int | float):
 
 
 def Pow(base: int | float | Fraction | Decimal | Complex,
-        exp: int | float | Fraction | Decimal | Complex,
+        expo: int | float | Fraction | Decimal | Complex,
         mod: int | float | Fraction | Decimal | Complex | None = None):
     # MOD only allowed for integer exponent
     if mod is not None:
-        if not isinstance(exp, int):
+        if not isinstance(expo, int):
             raise TypeError("mod is only supported for integer exponent")
         if not isinstance(base, int):
             base = int(base)
-        return pow_mod(base, exp, mod)
+        return pow_mod(base, expo, mod)
     global complex_choice
-    if isinstance(exp, int):
-        return returning(pow(base, exp))
+    if isinstance(expo, int):
+        return returning(pow(base, expo))
     elif isinstance(exp, (float, Decimal)):
-        frac = Fraction(*float.as_integer_ratio(exp)).limit_denominator()
-        if frac == 0.5: return sqrt(base)
+        frac = Fraction(*float.as_integer_ratio(expo)).limit_denominator()
+        if float(frac) == 0.5: return sqrt(base)
         if base < 0:
             if frac.denominator % 2 == 0:
                 if not complex_choice:
                     raise ValueError(MATH_ERROR)
                 base_ = abs(base)
-                res1 = pow(base_, exp)
+                res1 = pow(base_, expo)
                 return res1 * i
-            res = -pow(-base, exp)
+            res = -pow(-base, expo)
             return returning(res)
         if base == 0:
             if exp <= 0:
                 raise ValueError(MATH_ERROR)
             return 0
         #if base > 0:
-        result = float(pow(base, exp))
+        result = float(pow(base, expo))
         return returning(result)
+    elif isinstance(expo, (complex, Complex)):
+        # apply a^(b) = e^(b*ln(a))
+        return exp(expo * ln(base))
     elif returning(exp) == 0.5: return sqrt(base)
     else:
         return pow(base, exp)
@@ -1995,8 +2018,7 @@ def log(*args):
     return returning(math.log(num, base))
 def ln(num):
     if not isinstance(num, (complex, Complex)):
-        if num == 0:
-            return float('-inf')
+        return euler_num.__ln__(num)
 
     return log(math.e, num)
 
