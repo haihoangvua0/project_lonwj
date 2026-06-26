@@ -179,7 +179,7 @@ class Calculator_fx:
 
                 pos = entry.index(tk.INSERT)
                 entry.update_idletasks()
-                
+
                 # Đo kích thước vật lý của text để tính chính xác phần hiển thị
                 left_ratio, right_ratio = entry.xview()
                 n = len(text)
@@ -213,7 +213,7 @@ class Calculator_fx:
                 self.inputs.focus_set()
                 pos = self.inputs.index(tk.INSERT)
                 text = self.inputs.get()
-                
+
                 if value == "<-":
                         limit = None
                         self.output.delete(0, tk.END)
@@ -241,7 +241,7 @@ class Calculator_fx:
                                         self.inputs.icursor(tk.END)
                                         self.ensure_cursor_visible()
                                 else: self.inputs.icursor(tk.END)
-                                
+
                 elif value == "->":
                         pos = self.inputs.index(tk.INSERT)
                         limit = None
@@ -274,7 +274,7 @@ class Calculator_fx:
                                         else:
                                                 self.inputs.icursor(0)
                                                 self.ensure_cursor_visible()
-                                                
+
                 elif value == "up":
                         # Lướt ngược dòng thời gian (về các phép toán cũ hơn)
                         if self.history:
@@ -293,7 +293,7 @@ class Calculator_fx:
                                 self.ensure_cursor_visible()
                         else:
                                 self.inputs.icursor(0)
-                                
+
                 elif value == "down":
                         # Lướt xuôi dòng thời gian (về các phép toán mới hơn)
                         if self.history:
@@ -462,13 +462,13 @@ class Calculator_fx:
                                                                 found_open = True
                                                                 break
                                                         idx -= 1
-                                                
+
                                                 if found_open:
                                                         # Nếu trước dấu '(' là '^', đây là khối số mũ ^(...) -> Quét tiếp sang trái tìm cơ số
                                                         if idx_open > 0 and s[idx_open-1] == '^':
                                                                 curr = idx_open - 1
                                                                 continue 
-                                                        
+
                                                         # Nếu trước dấu '(' là tên hàm (sin, cos, sqrt...) -> Nuốt trọn hàm và quét tiếp
                                                         is_func = False
                                                         for token in sorted(SMART_TOKENS, key=len, reverse=True):
@@ -480,19 +480,19 @@ class Calculator_fx:
                                                                                 break
                                                         if is_func:
                                                                 continue
-                                                        
+
                                                         # Nếu chỉ là ngoặc đơn thuần (...), vẫn thuộc chuỗi liên kết ẩn
                                                         curr = idx_open
                                                         continue
                                                 else:
                                                         break
-                                        
+
                                         # 2. Nếu là số thực hoặc chữ số
                                         if s[curr-1].isdigit() or s[curr-1] == '.':
                                                 while curr > 0 and (s[curr-1].isdigit() or s[curr-1] == '.'):
                                                         curr -= 1
                                                 continue
-                                        
+
                                         # 3. Nếu là biến số hoặc hằng số toán học từ pfe
                                         found_token = False
                                         for token in VALID_TOKENS:
@@ -503,7 +503,7 @@ class Calculator_fx:
                                                         break
                                         if found_token:
                                                 continue
-                                                
+
                                         # Gặp toán tử (+ - * ÷) công khai -> Đứt chuỗi nhân ẩn, dừng lại tại đây
                                         break
                                 return curr
@@ -511,7 +511,7 @@ class Calculator_fx:
                         def find_right_entity_bound(s, p):
                                 if p >= len(s): return len(s)
                                 curr = p
-                                
+
                                 # 1. Kiểm tra xem có bắt đầu bằng một hàm số không (sin, cos...)
                                 found_func = False
                                 for token in sorted(SMART_TOKENS, key=len, reverse=True):
@@ -527,7 +527,7 @@ class Calculator_fx:
                                                                 if balance == 0: break
                                                         found_func = True
                                                         break
-                                
+
                                 if not found_func:
                                         # 2. Kiểm tra nếu là một số
                                         if s[curr].isdigit() or s[curr] == '.':
@@ -542,7 +542,7 @@ class Calculator_fx:
                                                                 curr += L
                                                                 found_token = True
                                                                 break
-                                
+
                                 # HẬU XỬ LÝ: Nếu ngay sau thực thể bên phải này dính liền với số mũ ^(...), ta phải nuốt luôn số mũ đó
                                 if curr < len(s) and s[curr:curr+2] == '^(':
                                         curr += 2
@@ -552,7 +552,7 @@ class Calculator_fx:
                                                 elif s[curr] == ')': balance -= 1
                                                 curr += 1
                                                 if balance == 0: break
-                                                
+
                                 return curr
 
                         # --- ĐIỀU HƯỚNG VÀ CHÈN PHÂN SỐ CHUẨN XÁC ---
@@ -590,11 +590,11 @@ class Calculator_fx:
                                         new_text = text[:left_bound] + f"({left_entity})/({right_entity})" + text[right_bound:]
                                         # Đưa con trỏ ra phía sau phân số vừa tạo như Casio thật
                                         cursor_pos = left_bound + len(f"({left_entity})/({right_entity})")
-                                        
+
                                 elif left_entity and not right_entity:
                                         new_text = text[:left_bound] + f"({left_entity})/()" + text[pos:]
                                         cursor_pos = left_bound + len(f"({left_entity})/") + 1
-                                        
+
                                 elif not left_entity and right_entity:
                                         new_text = text[:pos] + f"()/{right_entity}" + text[right_bound:]
                                         cursor_pos = pos + 1
@@ -626,6 +626,7 @@ class Calculator_fx:
                         self.output.delete(0, tk.END)
                 elif value == "SOLVE": 
                         expr = self.inputs.get()
+                        self.current = expr
                         if any(i in expr for i in ["inte", "d_dx", "sums", "muls"]): 
                                 self.output.delete(0, tk.END)
                                 self.output.insert(0, MATH_ERROR)
@@ -661,6 +662,7 @@ class Calculator_fx:
                         if self.finish_eval:
                                 self._reset_finish_state()
                         expr = self.inputs.get()
+                        self.current = expr
                         free_symbol = []
                         for i in pfe.names:
                                 if i in expr:
@@ -738,7 +740,7 @@ class Calculator_fx:
                 self.output.delete(0, tk.END)
                 expr = self.inputs.get()
                 if self.eval_state == "eval":
-                        #try:
+                        try:
                                 expr = self.inputs.get()
                                 if "=" in expr:
                                         self.output.insert(0, MATH_ERROR)
@@ -752,12 +754,12 @@ class Calculator_fx:
                                         self._show_tuple_result(result)
                                 else:
                                         self._show_result(expr, result)
-                        #except Exception as ex:
-                        #        self.regulation = self.fact_reg = ""
-                        #        self.output.delete(0, tk.END)
-                        #        self.output.insert(0, ex)
-                        #        self.finish_eval = True
-                        #        self.current = expr
+                        except Exception as ex:
+                                self.regulation = self.fact_reg = ""
+                                self.output.delete(0, tk.END)
+                                self.output.insert(0, ex)
+                                self.finish_eval = True
+                                self.current = expr
                 elif self.eval_state == "solve_mode_calc":
                         if self.solve_index < len(self.solve_vars):
                                 var, val = self.inputs.get().split("=")
@@ -934,7 +936,7 @@ class Calculator_fx:
                                 self._reset_finish_state(clear_output=False)
                         self.inputs.insert(pos, value)
                         self.inputs.icursor(pos + len(value))
-                        
+
                 if self.shift or self.alpha:
                         self.shift = self.alpha = False
                         self._rebuild_keypads()
@@ -1010,7 +1012,7 @@ class Calculator_fx:
                                 btn.grid(row=r, column=c, padx=2, pady=2)
                                 btn.bind("<Button-1>", lambda e, t=txt: self.on_press4(t))
                                 btn.config(fg=self.main_color, bg="#00cbff")
-                                
+
         def run(self):  
                 self.win.mainloop()  
 
