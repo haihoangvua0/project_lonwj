@@ -105,7 +105,7 @@ class euler_num:
     def __ge__(self, other):
         return not self < other
     @staticmethod
-    def __ln__(z: complex | Complex):
+    def __ln__(z):
         """Chỉ hỗ trợ số phức."""
         return ln(abs(z)) + Complex(0, 1) * Arg(z)
 
@@ -909,7 +909,7 @@ def sin(x):
     if abs(a - k * pi) <= 1e-12:
         return 0
     beta = returning((180 * a) / pi)
-    
+
     # CHUẨN HÓA GÓC: Đưa góc beta về đoạn [0, 360) bằng phép chia lấy dư
     if not isinstance(beta, (complex, Complex)):
         beta = beta % 360
@@ -1490,7 +1490,8 @@ def preprocess_expression(expr: str, *, form=False) -> str:
     # -------------------------------   
     expr = re.sub(r'(\d)\(', r'\1*(', expr)  
     expr = re.sub(r'\)\(', ')*(', expr)
-    expr = re.sub(rf'\)({str_of_var})', r')*\1', expr)  
+    expr = re.sub(rf'\)({str_of_var})', r')*\1', expr)
+    expr = re.sub(rf'({str_of_var})\(', r'\1*(', expr)
     #expr = re.sub(r'(\d)([A-Za-z])', r'\1*\2', expr) 
     expr = re.sub(rf'(\d)({str_of_func})', r'\1*\2', expr) 
     expr = re.sub(rf'(?<![A-Za-z0-9_.])({str_of_var})({str_of_var})(?![A-Za-z0-9_.])', r'\1*\2', expr)  # biến với biến
@@ -1681,7 +1682,7 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
         # =====================================================================
         # PHẦN 2: IMPROVED NEWTON-RAPHSON + BINARY SEARCH (INTERVAL BRACKETING)
         # =====================================================================
-        
+
         # 1. Xây dựng môi trường tính toán số thuần túy (tránh dùng SymPy để đạt tốc độ tối đa)
         eval_env = {
             "sin": sin, "cos": cos, "tan": tan,  
@@ -1692,10 +1693,10 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
         }
         eval_env.update(actual_val_const)
         eval_env.update(vars_val)
-        
+
         # Hàm hiệu số: F(x) = Left - Right. Mục tiêu là tìm x để F(x) xấp xỉ 0
         target_expr = f"({left}) - ({right})"
-        
+
         def f(v):
             eval_env[var] = v
             try:
@@ -1717,7 +1718,7 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
                 x0 = float(globals().get(var, 0.0))
             except:
                 x0 = 0.0
-        
+
         # Kiểm tra xem chính điểm đoán ban đầu đã là nghiệm chưa
         if not math.isnan(f(x0)) and abs(f(x0)) < 1e-12:
             sol_val = returning(x0)
@@ -1731,15 +1732,15 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
         found_bracket = False
         step = 0.1
         max_bound = 2e17  # Giới hạn tối đa như bạn mong muốn
-        
+
         for _ in range(80):
             x_left = x0 - step
             x_right = x0 + step
-            
+
             f_l = f(x_left)
             f_r = f(x_right)
             f_c = f(x0)
-            
+
             # Kiểm tra đan dấu giữa các khoảng để cô lập nghiệm
             if not math.isnan(f_l) and not math.isnan(f_c) and f_l * f_c <= 0:
                 a, b = x_left, x0
@@ -1753,7 +1754,7 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
                 a, b = x_left, x_right
                 found_bracket = True
                 break
-            
+
             step *= 2.5  # Tăng nhanh kích thước bước nhảy để quét tới khoảng cực đại
             if step > max_bound:
                 break
@@ -1767,12 +1768,12 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
                 f_curr = f(x_curr)
                 if abs(f_curr) < 1e-12 or abs(b - a) < 1e-12:
                     break
-                
+
                 # Tính đạo hàm số (Numerical Derivative) tại điểm hiện tại để làm bước nhảy Newton
                 h = 1e-7 if abs(x_curr) < 1 else 1e-7 * abs(x_curr)
                 f_plus = f(x_curr + h)
                 df = (f_plus - f_curr) / h
-                
+
                 newton_success = False
                 if df != 0 and not math.isnan(df):
                     x_new = x_curr - f_curr / df
@@ -1780,11 +1781,11 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
                     if a <= x_new <= b:
                         x_curr = x_new
                         newton_success = True
-                
+
                 if not newton_success:
                     # Nếu Newton nhảy bậy ra ngoài biên hoặc gặp đạo hàm = 0, lập tức dùng Binary Search (Chia đôi) để bóp nghẹt nghiệm
                     x_curr = (a + b) / 2.0
-                
+
                 # Cập nhật lại biên đan dấu [a, b]
                 f_curr = f(x_curr)
                 if math.isnan(f_curr):
@@ -1814,7 +1815,7 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
                 return [sol_val]
             stor(**{var: sol_val})  # Lưu nghiệm vào biến X để Ans hoặc các phép tính sau kế thừa
             return sol_val
-        
+
         return []
 
 # 13. Roots and powers
@@ -2126,16 +2127,16 @@ def inte(expression: str, low: float, high: float, *, var: str = "x"):
                 var: val, "sin": math.sin, "cos": math.cos, "tan": math.tan,
                 "log": math.log, "ln": math.log, "sqrt": sqrt, pi_symbol: pi, "e": e
             })
-            
+
             n_steps = 1000  # Số đoạn chia lưới (phải là số chẵn)
             h_step = (high - low) / n_steps
             total_sum = f_eval(low) + f_eval(high)
-            
+
             for j in range(1, n_steps):
                 val_j = low + j * h_step
                 weight = 4 if j % 2 != 0 else 2
                 total_sum += weight * f_eval(val_j)
-                
+
             res_val = (h_step / 3) * total_sum
             return returning(res_val)
         except:
@@ -2377,4 +2378,4 @@ del res_;
 Ans = 0
 
 if __name__ == "__main__":
-    print(sqrt(pi+3))
+    print("Docs: ...")
