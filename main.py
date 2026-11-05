@@ -143,7 +143,7 @@ class Calculator_fx:
                 self.build_main_grid()
 
         def _history_item(self, expr, result):
-                if isinstance(result, (pfe.sqrt, float, pfe.Decimal, pfe.Fraction, pfe.Pi, pfe.euler_num)) or result < 1:
+                if isinstance(result, (pfe.sqrt, float, pfe.Decimal, pfe.Fraction, pfe.Pi, pfe.euler_num, complex, pfe.Complex)) or result < 1:
                         factors = []
                 else:
                         factors = pfe.FACT(result)
@@ -379,8 +379,13 @@ class Calculator_fx:
                         self.output.delete(0, tk.END)
                 elif value == "i":
                         if pfe.complex_choice:
+                                if self.finish_eval:
+                                        self._reset_finish_state()
+                                        self._clear_entries()
+                                        pos = 0
+                                        self.eval_state = "eval"
                                 expr = self.inputs.get()
-                                if pos == 0 and len(expr) == 0: pass
+                                if pos == 0 and len(expr) == 0: self.inputs.insert(0, "i")
                                 elif 0 < pos < len(expr) and expr[pos-1] in ["+", "-", "*", "÷", "("]:
                                         self.inputs.insert(pos, "i")
                                         self.inputs.icursor(pos)
@@ -650,7 +655,7 @@ class Calculator_fx:
                                                 self.output.insert(0, f"x={sol}")
                         except Exception as ex:
                                 self.output.delete(0, tk.END)
-                                self.output.insert(0, ex)
+                                self.output.insert(0, str(ex))
                 elif value == "CALC":
                         if self.finish_eval:
                                 self._reset_finish_state()
@@ -684,7 +689,7 @@ class Calculator_fx:
                         except Exception as ex:
                                 self.regulation = self.fact_reg = ""
                                 self.output.delete(0, tk.END)
-                                self.output.insert(0, ex)
+                                self.output.insert(0, str(ex))
                                 self.finish_eval = True
                                 self.current = expr
                 elif value == "Abs":
@@ -749,7 +754,7 @@ class Calculator_fx:
                         except Exception as ex:
                                 self.regulation = self.fact_reg = ""
                                 self.output.delete(0, tk.END)
-                                self.output.insert(0, ex)
+                                self.output.insert(0, str(ex))
                                 self.finish_eval = True
                                 self.current = expr
                 elif self.eval_state == "solve_mode_calc":
@@ -807,7 +812,7 @@ class Calculator_fx:
                                 self.eval_state = "eval"
                                 self.regulation = self.fact_reg = ""
                                 self.output.delete(0, tk.END)
-                                self.output.insert(0, ex)
+                                self.output.insert(0, str(ex))
                                 self.finish_eval = True
                                 self.current = self.calc_expr
                 elif self.eval_state == "calc_finish":
