@@ -67,7 +67,7 @@ class euler_num:
     def __rtruediv__(self, other):
         if isinstance(other, euler_num):
             return other.value / self.value
-        return other + self.value
+        return other / self.value
     def __rpow__(self, other):
         if isinstance(other, euler_num):
             return Pow(other.value, self.value)
@@ -1207,12 +1207,9 @@ def Conjg(z: int | float | Fraction | complex):
         raise ValueError(MATH_ERROR)
 
 def modulo(a: int, b: int, /, ask: bool = False):
-    if complex_choice and not not b != 0:
+    if complex_choice or b == 0:
         raise ValueError(MATH_ERROR)
-    res = a // b
-    if a < 0 or b < 0:
-        return returning(res)
-    remain = a - res * b
+    res, remain = divmod(a, b)
     if ask:
         return res, remain, "mod"
     return res
@@ -1586,7 +1583,7 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
     left = preprocess_expression(left); right = preprocess_expression(right)  
     try:
         # phần 1.
-        from sympy import sympify, Eq, Symbol, solve, E as e_, I
+        from sympy import sympify, Eq, Symbol, solve, E as e_, I, Pow as SymPyPow
         # Lấy giá trị biến đã lưu (A, B, C, ...)  
         avail_var = {  
             "A": A,  
@@ -1609,8 +1606,8 @@ def solve_eq(expr: str, var='x', *, ask: bool = False, **vars_val):
             "comb": comb,  
             "factorial": factorial,  
             "perm": perm,   
-            "pow": Pow,  
-            "Pow": Pow,  
+            "pow": SymPyPow,  
+            "Pow": SymPyPow,  
             "abs": abs,  
             #"frac": Fraction,  
             "nth_rt": nth_root,  
@@ -1913,7 +1910,9 @@ def cbrt(n: int | float | Decimal | Fraction | complex):
     return Pow(n, 1/3)
 
 def nth_root(ex: float | Fraction | Decimal | int, base: float | Fraction | Decimal | int):
-    if ex == 2: return sqrt(ex)
+    if ex == 0:
+        raise ValueError(MATH_ERROR)
+    if ex == 2: return sqrt(base)
     return Pow(base, 1/ex)
 
 def pow_mod(base: int, exp: int, mod: int):
@@ -1930,13 +1929,13 @@ def pow_mod(base: int, exp: int, mod: int):
 
 
 # 14. Combinatorics
-def comb(k: int | float, n: int | float):
+def comb(n: int | float, k: int | float):
     try:
         return math.comb(n, k)
     except:
         raise ValueError(MATH_ERROR)
 
-def perm(k: int | float, n: int | float | None = None):
+def perm(n: int | float, k: int | float | None = None):
     try:
         return math.perm(n, k)
     except:
@@ -1960,33 +1959,37 @@ def Pow(base: int | float | Fraction | Decimal | Complex,
             base = int(base)
         return pow_mod(base, expo, mod)
     global complex_choice
+    if isinstance(expo, (complex, Complex)):
+        if not complex_choice:
+            raise ValueError(MATH_ERROR)
+        if isinstance(base, (int, float, Fraction, Decimal)) and base < 0:
+            base = complex(base)
+        return exp(expo * ln(base))
+    if isinstance(base, Complex):
+        return base ** expo
+    if isinstance(base, complex):
+        return returning(base ** expo)
     if isinstance(expo, int):
         return returning(pow(base, expo))
-    elif isinstance(exp, (float, Decimal)):
-        frac = Fraction(*float.as_integer_ratio(expo)).limit_denominator()
-        if float(frac) == 0.5: return sqrt(base)
+    if isinstance(expo, (float, Decimal, Fraction)):
+        frac = expo if isinstance(expo, Fraction) else Fraction(expo).limit_denominator()
+        if frac == Fraction(1, 2):
+            return sqrt(base)
+        if frac == Fraction(-1, 2):
+            return 1 / sqrt(base)
         if base < 0:
             if frac.denominator % 2 == 0:
                 if not complex_choice:
                     raise ValueError(MATH_ERROR)
-                base_ = abs(base)
-                res1 = pow(base_, expo)
-                return res1 * i
-            res = -pow(-base, expo)
+                return returning(complex(base) ** float(frac))
+            magnitude = pow(-base, float(frac))
+            res = -magnitude if frac.numerator % 2 else magnitude
             return returning(res)
-        if base == 0:
-            if exp <= 0:
-                raise ValueError(MATH_ERROR)
-            return 0
-        #if base > 0:
-        result = float(pow(base, expo))
+        if base == 0 and frac <= 0:
+            raise ValueError(MATH_ERROR)
+        result = float(pow(base, float(frac)))
         return returning(result)
-    elif isinstance(expo, (complex, Complex)):
-        # apply a^(b) = e^(b*ln(a))
-        return exp(expo * ln(base))
-    elif returning(exp) == 0.5: return sqrt(base)
-    else:
-        return pow(base, exp)
+    raise TypeError(MATH_ERROR)
 
 # 15. Differentials + log
 def log(*args):
@@ -2001,28 +2004,19 @@ def log(*args):
 
     # ----- COMPLEX -----
     if isinstance(num, (complex, Complex)):
-
-        r, theta = Pol(num.real, num.imag)
-
-        if r == 0:
-            raise ValueError("math domain error")
-
-        ln_r = math.log(float(r))
-        ln_base = math.log(float(base))
-
-        real_part = ln_r / ln_base
-        imag_part = theta / ln_base
-
-        return Complex(returning(real_part),
-                       returning(imag_part))
+        value = complex(float(num.real), float(num.imag))
+        log_base = complex(float(base.real), float(base.imag)) if isinstance(base, Complex) else complex(base)
+        result = cmath.log(value, log_base)
+        if abs(result.imag) < 1e-14:
+            return returning(result.real)
+        return Complex(returning(result.real), returning(result.imag))
 
     # ----- REAL -----
     return returning(math.log(num, base))
 def ln(num):
-    if not isinstance(num, (complex, Complex)):
-        return euler_num.__ln__(num)
-
-    return log(math.e, num)
+    if isinstance(num, (complex, Complex)):
+        return log(math.e, num)
+    return returning(math.log(float(num)))
 
 def lim(point, expr, *, direction="both",
         steps=30, base=10,
