@@ -105,7 +105,7 @@ class euler_num:
     def __ge__(self, other):
         return not self < other
     @staticmethod
-    def __ln__(z: complex | Complex):
+    def __ln__(z):
         """Chỉ hỗ trợ số phức."""
         return ln(abs(z)) + Complex(0, 1) * Arg(z)
 
