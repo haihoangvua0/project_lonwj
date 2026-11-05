@@ -656,7 +656,7 @@ class Calculator_fx:
                                                 self.output.insert(0, f"x={sol}")
                         except Exception as ex:
                                 self.output.delete(0, tk.END)
-                                self.output.insert(0, ex)
+                                self.output.insert(0, str(ex))
                 elif value == "CALC":
                         if self.finish_eval:
                                 self._reset_finish_state()
@@ -690,7 +690,7 @@ class Calculator_fx:
                         except Exception as ex:
                                 self.regulation = self.fact_reg = ""
                                 self.output.delete(0, tk.END)
-                                self.output.insert(0, ex)
+                                self.output.insert(0, str(ex))
                                 self.finish_eval = True
                                 self.current = expr
                 elif value == "Abs":
@@ -738,7 +738,7 @@ class Calculator_fx:
                 self.output.delete(0, tk.END)
                 expr = self.inputs.get()
                 if self.eval_state == "eval":
-                        #try:
+                        try:
                                 expr = self.inputs.get()
                                 if "=" in expr:
                                         self.output.insert(0, MATH_ERROR)
@@ -752,12 +752,12 @@ class Calculator_fx:
                                         self._show_tuple_result(result)
                                 else:
                                         self._show_result(expr, result)
-                        #except Exception as ex:
-                        #        self.regulation = self.fact_reg = ""
-                        #        self.output.delete(0, tk.END)
-                        #        self.output.insert(0, ex)
-                        #        self.finish_eval = True
-                        #        self.current = expr
+                        except Exception as ex:
+                                self.regulation = self.fact_reg = ""
+                                self.output.delete(0, tk.END)
+                                self.output.insert(0, str(ex))
+                                self.finish_eval = True
+                                self.current = expr
                 elif self.eval_state == "solve_mode_calc":
                         if self.solve_index < len(self.solve_vars):
                                 var, val = self.inputs.get().split("=")
@@ -813,7 +813,7 @@ class Calculator_fx:
                                 self.eval_state = "eval"
                                 self.regulation = self.fact_reg = ""
                                 self.output.delete(0, tk.END)
-                                self.output.insert(0, ex)
+                                self.output.insert(0, str(ex))
                                 self.finish_eval = True
                                 self.current = self.calc_expr
                 elif self.eval_state == "calc_finish":
@@ -982,12 +982,10 @@ class Calculator_fx:
                         grid = self.extra_norm
                         self.extra_color = TEXT_NORMAL
 
-                disabled_tokens = {"inte", "d_dx", "sums", "muls"}
                 for r in range(len(grid)):  
                         for c in range(len(grid[0])):
                                 txt = grid[r][c]
-                                state = "disabled" if txt == "" or txt in disabled_tokens else "normal"
-                                btn = tk.Button(self.extra_frame, text=txt, width=2, height=2, state=state, takefocus=0)
+                                btn = tk.Button(self.extra_frame, text=txt, width=2, height=2, state="disabled" if txt == "" else "normal", takefocus=0)
                                 btn.grid(row=r, column=c, padx=2, pady=2)
                                 btn.bind("<Button-1>", lambda e, t=txt: self.on_press3(t))
                                 btn.config(fg=self.extra_color, bg="#00cbff")
