@@ -6,6 +6,7 @@ import math, cmath, random, os
 from decimal import Decimal, getcontext
 from fractions import Fraction
 from decimal import Decimal
+import re, json # for long term use from preprocess_expression func
 getcontext().prec = 50
 # Symbol
 theta_symbol = "\u03B8"     
@@ -105,7 +106,7 @@ class euler_num:
     def __ge__(self, other):
         return not self < other
     @staticmethod
-    def __ln__(z):
+    def __ln__(z: complex | Complex):
         """Chỉ hỗ trợ số phức."""
         return ln(abs(z)) + Complex(0, 1) * Arg(z)
 
@@ -1222,8 +1223,7 @@ def insert(index: int, string: str, sub_string: str):
     return new
 # 12. Expression engine
 def preprocess_expression(expr: str, *, form=False) -> str: 
-    global names 
-    import re  
+    global names  
 
     #expr = expr.replace("^", "**")  
     expr = expr.strip(" ")
@@ -1260,8 +1260,8 @@ def preprocess_expression(expr: str, *, form=False) -> str:
     expr = expr.replace("÷", "/")
     #expr = expr.replace("×", "*")
     # -------------------------------  
-    # protect expression argument in inte()  
-    # inte(a,b,expr)  -> inte(a,b,"expr")  
+    # protect the expression argument in inte(), sums(), and muls().
+    # Their expression argument is first: (expr, a, b).
     # -------------------------------  
     def add_close_parentheses(expr: str):
         from collections import Counter
@@ -1279,42 +1279,133 @@ def preprocess_expression(expr: str, *, form=False) -> str:
         else: raise ValueError(MATH_ERROR)
     expr = add_close_parentheses(expr)
 
-    def repl_inte(m):  
-        expr, low, high = m.groups()  
-        return f'inte("{expr}",{low},{high})'  
+    # Wrap the expression argument in these calls. Split only on commas at
+    # the current parenthesis depth so nested calls such as log(2,x) survive.
 
-    expr = re.sub(  
-        r'inte\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]*)\s*\)',  
-        repl_inte,  
-        expr  
-    )  
-    def repl_sigma(m):  
-        expr, low, high = m.groups()  
-        return f'sums("{expr}",{low},{high})'  
+    def matching_close(text: str, open_idx: int) -> int:
+        depth = 1
+        quote = None
+        escaped = False
+        for pos in range(open_idx + 1, len(text)):
+            char = text[pos]
+            if quote:
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == quote:
+                    quote = None
+            elif char in ("'", '"'):
+                quote = char
+            elif char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0:
+                    return pos
+        raise ValueError(MATH_ERROR)
 
-    expr = re.sub(  
-        r'sums\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]*)\s*\)',  
-        repl_sigma,  
-        expr  
-    )  
-    def repl_muls(m):  
-        expr, low, high = m.groups()  
-        return f'muls("{expr}",{low},{high})'   
+    def split_arguments(text: str) -> list[str]:
+        parts = []
+        start = depth = 0
+        quote = None
+        escaped = False
+        for pos, char in enumerate(text):
+            if quote:
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == quote:
+                    quote = None
+            elif char in ("'", '"'):
+                quote = char
+            elif char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+            elif char == "," and depth == 0:
+                parts.append(text[start:pos].strip())
+                start = pos + 1
+        parts.append(text[start:].strip())
+        return parts
 
-    expr = re.sub(  
-        r'muls\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]*)\s*\)',  
-        repl_muls,  
-        expr  
-    )   
-    def repl_diff(m):  
-        expr, val = m.groups()  
-        return f'd_dx("{expr}", {val})'  
+    def transform_special_calls(text: str) -> str:
+        result = []
+        pos = 0
+        while pos < len(text):
+            if text[pos] in ("'", '"'):
+                quote = text[pos]
+                end = pos + 1
+                escaped = False
+                while end < len(text):
+                    if escaped:
+                        escaped = False
+                    elif text[end] == "\\":
+                        escaped = True
+                    elif text[end] == quote:
+                        end += 1
+                        break
+                    end += 1
+                result.append(text[pos:end])
+                pos = end
+                continue
 
-    expr = re.sub(  
-        r'd_dx\(\s*(.+?)\s*,\s*([^)]+)\s*\)',  
-        repl_diff,  
-        expr  
-    )  
+            if text[pos].isalpha() or text[pos] == "_":
+                end_name = pos + 1
+                while end_name < len(text) and (text[end_name].isalnum() or text[end_name] == "_"):
+                    end_name += 1
+                if end_name < len(text) and text[end_name] == "(":
+                    close = matching_close(text, end_name)
+                    name = text[pos:end_name]
+                    args = split_arguments(text[end_name + 1:close])
+                    args = [transform_special_calls(arg) for arg in args]
+                    target = {"inte": 0, "sums": 0, "muls": 0, "d_dx": 0}.get(name)
+                    if target is not None and len(args) > target:
+                        if not (len(args[target]) >= 2 and args[target][0] in "'\"" and args[target][-1] == args[target][0]):
+                            args[target] = json.dumps(args[target])
+                        rendered = ", ".join(args) if name == "d_dx" else ",".join(args)
+                        result.append(f"{name}({rendered})")
+                    else:
+                        result.append(f"{name}({','.join(args)})")
+                    pos = close + 1
+                    continue
+                result.append(text[pos:end_name])
+                pos = end_name
+                continue
+
+            result.append(text[pos])
+            pos += 1
+        return "".join(result)
+
+    expr = transform_special_calls(expr)
+
+    # Keep generated expression strings untouched by the remaining regex
+    # passes (implicit multiplication, factorial, powers, and so on).
+    string_literals = []
+    protected = []
+    pos = 0
+    while pos < len(expr):
+        if expr[pos] not in ("'", '"'):
+            protected.append(expr[pos])
+            pos += 1
+            continue
+        quote = expr[pos]
+        end = pos + 1
+        escaped = False
+        while end < len(expr):
+            if escaped:
+                escaped = False
+            elif expr[end] == "\\":
+                escaped = True
+            elif expr[end] == quote:
+                end += 1
+                break
+            end += 1
+        string_literals.append(expr[pos:end])
+        protected.append(f"__STRLIT{len(string_literals)-1}__")
+        pos = end
+    expr = "".join(protected)
 
     pattern = re.compile(r'\|([^|]+)\|')  
 
@@ -1482,6 +1573,8 @@ def preprocess_expression(expr: str, *, form=False) -> str:
     # restore func
     for i, f in enumerate(func_calls):  
         expr = expr.replace(f"__FUNC{i}__", f) 
+    for i, literal in enumerate(string_literals):
+        expr = expr.replace(f"__STRLIT{i}__", literal)
     # -------------------------------  
     # implicit multiplication  
     # -------------------------------   
